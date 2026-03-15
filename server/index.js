@@ -196,6 +196,28 @@ app.delete('/api/students/:id', (req, res) => {
   res.json({ success: true })
 })
 
+// Batch import students
+app.post('/api/students/import', (req, res) => {
+  const { classId, students } = req.body
+  if (!classId || !students || !Array.isArray(students)) {
+    return res.status(400).json({ error: 'Invalid input' })
+  }
+  
+  const now = Date.now()
+  const insertStmt = db.prepare('INSERT INTO students (id, class_id, name, student_no, total_points, pet_level, pet_exp, created_at) VALUES (?, ?, ?, ?, 0, 1, 0, ?)')
+  
+  let imported = 0
+  for (const student of students) {
+    if (student.name && student.name.trim()) {
+      const id = uuidv4()
+      insertStmt.run(id, classId, student.name.trim(), student.studentNo?.trim() || null, now)
+      imported++
+    }
+  }
+  
+  res.json({ success: true, imported })
+})
+
 // Pet
 app.put('/api/students/:id/pet', (req, res) => {
   const { petType } = req.body

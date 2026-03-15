@@ -44,6 +44,7 @@ const sortAsc = ref(true)
 // Modals
 const showClassModal = ref(false)
 const showStudentModal = ref(false)
+const showImportModal = ref(false)
 const showAddModal = ref(false)
 const showRankModal = ref(false)
 const showPetModal = ref(false)
@@ -51,6 +52,7 @@ const showRecordsModal = ref(false)
 const newClassName = ref('')
 const newStudentName = ref('')
 const newStudentNo = ref('')
+const importText = ref('')
 const selectedStudent = ref<Student | null>(null)
 const selectedPetCategory = ref<'normal' | 'mythical'>('normal')
 const evaluationRecords = ref<any[]>([])
@@ -158,6 +160,51 @@ async function addStudent() {
   } catch (error) {
     console.error('添加学生失败:', error)
     alert('添加学生失败，请重试')
+  }
+}
+
+function openImportModal() {
+  importText.value = ''
+  showImportModal.value = true
+}
+
+async function importStudents() {
+  if (!importText.value.trim() || !currentClass.value) return
+  
+  // Parse text: one student per line, name and studentNo separated by any delimiter
+  const lines = importText.value.trim().split('\n')
+  const students = []
+  
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed) continue
+    
+    // Try to split by common delimiters: tab, comma, space, semicolon
+    const parts = trimmed.split(/[\t,\s;]+/)
+    if (parts.length >= 2) {
+      students.push({ name: parts[0], studentNo: parts.slice(1).join('') })
+    } else if (parts.length === 1) {
+      students.push({ name: parts[0], studentNo: '' })
+    }
+  }
+  
+  if (students.length === 0) {
+    alert('没有识别到学生信息')
+    return
+  }
+  
+  try {
+    const res = await api.post('/students/import', {
+      classId: currentClass.value.id,
+      students
+    })
+    alert(`成功导入 ${res.data.imported} 名学生`)
+    showImportModal.value = false
+    importText.value = ''
+    await loadStudents()
+  } catch (error) {
+    console.error('导入失败:', error)
+    alert('导入失败，请重试')
   }
 }
 
@@ -341,6 +388,13 @@ onMounted(() => {
           </button>
           <button 
             v-if="currentClass"
+            @click="openImportModal"
+            class="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-600"
+          >
+            📥 批量导入
+          </button>
+          <button 
+            v-if="currentClass"
             @click="deleteClass(currentClass.id)"
             class="bg-red-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-600"
           >
@@ -455,6 +509,33 @@ onMounted(() => {
         <div class="flex gap-2 justify-end">
           <button @click="showStudentModal = false" class="px-4 py-2 text-gray-500">取消</button>
           <button @click="addStudent" class="bg-primary text-white px-4 py-2 rounded-lg">添加</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div v-if="showImportModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-xl p-6 w-[500px]">
+        <h3 class="text-lg font-bold mb-2">📥 批量导入学生</h3>
+        <p class="text-sm text-gray-500 mb-4">
+          一行一个学生，姓名和学号用空格、逗号、Tab或分号分隔
+        </p>
+        <textarea 
+          v-model="importText"
+          placeholder="张三 20240001&#10;李四, 20240002&#10;王五；20240003"
+          class="w-full border rounded-lg px-4 py-3 mb-4 h-48 text-sm font-mono"
+        ></textarea>
+        <div class="bg-gray-50 rounded-lg p-3 mb-4 text-sm text-gray-600">
+          <p class="font-medium mb-1">示例格式：</p>
+          <code class="text-xs bg-gray-200 px-1 rounded">
+            张三 20240001<br>
+            李四,20240002<br>
+            王五；20240003
+          </code>
+        </div>
+        <div class="flex gap-2 justify-end">
+          <button @click="showImportModal = false" class="px-4 py-2 text-gray-500">取消</button>
+          <button @click="importStudents" class="bg-primary text-white px-4 py-2 rounded-lg">导入</button>
         </div>
       </div>
     </div>
