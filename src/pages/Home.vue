@@ -61,6 +61,8 @@ const showRulesModal = ref(false)
 const newRuleName = ref('')
 const newRulePoints = ref(1)
 const newRuleCategory = ref('学习')
+const batchMode = ref(false)
+const selectedStudents = ref<Set<string>>(new Set())
 
 // Computed
 const filteredStudents = computed(() => {
@@ -252,7 +254,77 @@ function openAddModal(student: Student) {
   showAddModal.value = true
 }
 
-async function quickAdd(student: Student, rule: Rule) {
+function startBatchMode() {
+  batchMode.value = true
+  selectedStudents.value = new Set()
+}
+
+function cancelBatchMode() {
+  batchMode.value = false
+  selectedStudents.value = new Set()
+}
+
+function toggleStudentSelect(studentId: string) {
+  const newSet = new Set(selectedStudents.value)
+  if (newSet.has(studentId)) {
+    newSet.delete(studentId)
+  } else {
+    newSet.add(studentId)
+  }
+  selectedStudents.value = newSet
+}
+
+function selectAllStudents() {
+  if (selectedStudents.value.size === filteredStudents.value.length) {
+    selectedStudents.value = new Set()
+  } else {
+    selectedStudents.value = new Set(filteredStudents.value.map(s => s.id))
+  }
+}
+
+async function batchAddPoints() {
+  if (selectedStudents.value.size === 0) return
+  selectedStudent.value = null // 标记为批量模式
+  selectedEvalTab.value = '学习'
+  showAddModal.value = true
+}
+
+async function batchSubPoints() {
+  if (selectedStudents.value.size === 0) return
+  selectedStudent.value = null // 标记为批量模式
+  selectedEvalTab.value = '行为' // 扣分通常在行为分类
+  showAddModal.value = true
+}
+
+async function quickAdd(student: Student | null, rule: Rule) {
+  // 批量模式
+  if (!student) {
+    const studentIds = Array.from(selectedStudents.value)
+    let successCount = 0
+    
+    for (const studentId of studentIds) {
+      try {
+        await api.post('/evaluations', {
+          classId: currentClass.value?.id,
+          studentId: studentId,
+          points: rule.points,
+          reason: rule.name,
+          category: rule.category
+        })
+        successCount++
+      } catch (error) {
+        console.error('评价失败:', error)
+      }
+    }
+    
+    showAddModal.value = false
+    alert(`已为 ${successCount} 名学生${rule.points > 0 ? '加' : '扣'}${Math.abs(rule.points)}分`)
+    cancelBatchMode()
+    await loadStudents()
+    return
+  }
+  
+  // 单个学生模式
   try {
     const res = await api.post('/evaluations', {
       classId: currentClass.value?.id,
@@ -483,21 +555,45 @@ onMounted(() => {
         </div>
         <div class="flex gap-2">
           <button 
-            v-if="currentClass"
+            v-if="currentClass && !batchMode"
             @click="showStudentModal = true"
             class="bg-secondary text-white px-4 py-2 rounded-lg text-sm hover:bg-green-500"
           >
             + 添加学生
           </button>
           <button 
-            v-if="currentClass"
+            v-if="currentClass && !batchMode"
             @click="openImportModal"
             class="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-600"
           >
             📥 批量导入
           </button>
           <button 
-            v-if="currentClass"
+            v-if="currentClass && !batchMode"
+            @click="startBatchMode"
+            class="bg-purple-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-600"
+          >
+            ✅ 批量评价
+          </button>
+          <template v-if="batchMode">
+            <button 
+              @click="cancelBatchMode"
+              class="bg-gray-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-600"
+            >
+              取消
+            </button>
+            <button 
+              @click="selectAllStudents"
+              class="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-600"
+            >
+              全选
+            </button>
+            <span class="text-gray-600 px-4 py-2">
+              已选 {{ selectedStudents.size }} 人
+            </span>
+          </template>
+          <button 
+            v-if="currentClass && !batchMode"
             @click="deleteClass(currentClass.id)"
             class="bg-red-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-600"
           >
@@ -530,9 +626,19 @@ onMounted(() => {
           <div 
             v-for="student in filteredStudents" 
             :key="student.id"
-            class="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition cursor-pointer"
-            @click="openAddModal(student)"
+            class="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition cursor-pointer relative"
+            :class="{ 'ring-2 ring-purple-500': batchMode && selectedStudents.has(student.id) }"
+            @click="batchMode ? toggleStudentSelect(student.id) : openAddModal(student)"
           >
+            <!-- Checkbox for batch mode -->
+            <div 
+              v-if="batchMode"
+              class="absolute top-2 left-2 w-6 h-6 rounded border-2 flex items-center justify-center z-10"
+              :class="selectedStudents.has(student.id) ? 'bg-purple-500 border-purple-500' : 'bg-white border-gray-300'"
+            >
+              <span v-if="selectedStudents.has(student.id)" class="text-white text-sm">✓</span>
+            </div>
+            
             <!-- Pet Image -->
             <div class="aspect-square bg-orange-50 flex items-center justify-center overflow-hidden relative">
               <img 
@@ -561,7 +667,7 @@ onMounted(() => {
             <div class="p-3">
               <div class="flex items-center justify-between mb-1">
                 <span class="font-bold text-gray-800">{{ student.name }}</span>
-                <span class="text-sm font-bold text-primary">+{{ student.total_points }}分</span>
+                <span class="text-sm font-bold text-primary">⭐ {{ student.total_points }}</span>
               </div>
               <div class="bg-gray-200 rounded-full h-1.5">
                 <div 
@@ -571,6 +677,22 @@ onMounted(() => {
               </div>
             </div>
           </div>
+        </div>
+        
+        <!-- Batch Action Bar -->
+        <div v-if="batchMode && selectedStudents.size > 0" class="fixed bottom-0 left-56 right-0 bg-white border-t shadow-lg p-4 flex justify-center gap-4">
+          <button 
+            @click="batchAddPoints"
+            class="bg-green-500 text-white px-6 py-3 rounded-lg font-bold hover:bg-green-600 transition"
+          >
+            ⬆️ 统一加分
+          </button>
+          <button 
+            @click="batchSubPoints"
+            class="bg-red-500 text-white px-6 py-3 rounded-lg font-bold hover:bg-red-600 transition"
+          >
+            ⬇️ 统一扣分
+          </button>
         </div>
       </div>
     </main>
@@ -647,7 +769,12 @@ onMounted(() => {
     <div v-if="showAddModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div class="bg-white rounded-xl p-6 w-[500px] max-h-[80vh] overflow-auto">
         <h3 class="text-lg font-bold mb-4">
-          为 <span class="text-primary">{{ selectedStudent?.name }}</span> 评价
+          <template v-if="selectedStudent">
+            为 <span class="text-primary">{{ selectedStudent?.name }}</span> 评价
+          </template>
+          <template v-else>
+            批量评价 <span class="text-purple-500">{{ selectedStudents.size }}</span> 名学生
+          </template>
         </h3>
         
         <!-- Category Tabs -->
@@ -668,7 +795,7 @@ onMounted(() => {
           <button 
             v-for="rule in currentCategoryRules" 
             :key="rule.id"
-            @click="quickAdd(selectedStudent!, rule); showAddModal = false"
+            @click="quickAdd(selectedStudent, rule); showAddModal = false"
             class="rounded-lg p-3 text-left transition border-2"
             :class="rule.points > 0 ? 'bg-green-50 border-green-200 hover:bg-green-100' : 'bg-red-50 border-red-200 hover:bg-red-100'"
           >
