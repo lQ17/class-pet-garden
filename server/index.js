@@ -250,7 +250,68 @@ app.post('/api/evaluations', (req, res) => {
   // Update student points
   db.prepare('UPDATE students SET total_points = total_points + ? WHERE id = ?').run(points, studentId)
   
+  // Update pet exp (only for positive points and if student has a pet)
+  if (points > 0) {
+    const student = db.prepare('SELECT * FROM students WHERE id = ?').get(studentId)
+    if (student && student.pet_type) {
+      const newExp = student.pet_exp + points
+      let newLevel = student.pet_level
+      
+      // Level up logic
+      const levelConfig = [40, 60, 80, 100, 120, 140, 160]
+      let totalRequired = 0
+      for (let i = 0; i < levelConfig.length; i++) {
+        totalRequired += levelConfig[i]
+        if (newExp >= totalRequired) {
+          newLevel = i + 2 // Level starts at 1, so index + 2
+        }
+      }
+      newLevel = Math.min(newLevel, 8) // Max level is 8
+      
+      // Check if pet graduated (reached level 8)
+      let graduated = false
+      if (newLevel === 8 && student.pet_level < 8) {
+        const badgeId = uuidv4()
+        db.prepare('INSERT INTO badges (id, student_id, pet_type, earned_at) VALUES (?, ?, ?, ?)').run(badgeId, studentId, student.pet_type, now)
+        graduated = true
+      }
+      
+      db.prepare('UPDATE students SET pet_exp = ?, pet_level = ? WHERE id = ?').run(newExp, newLevel, studentId)
+      
+      return res.json({ 
+        id, 
+        timestamp: now, 
+        petLevel: newLevel, 
+        petExp: newExp,
+        levelUp: newLevel > student.pet_level,
+        graduated
+      })
+    }
+  }
+  
   res.json({ id, timestamp: now })
+})
+
+// Undo last evaluation
+app.delete('/api/evaluations/latest', (req, res) => {
+  const { classId } = req.query
+  if (!classId) {
+    return res.status(400).json({ error: 'classId required' })
+  }
+  
+  // Get latest record
+  const record = db.prepare('SELECT * FROM evaluation_records WHERE class_id = ? ORDER BY timestamp DESC LIMIT 1').get(classId)
+  if (!record) {
+    return res.status(404).json({ error: 'No record found' })
+  }
+  
+  // Undo points
+  db.prepare('UPDATE students SET total_points = total_points - ? WHERE id = ?').run(record.points, record.student_id)
+  
+  // Delete record
+  db.prepare('DELETE FROM evaluation_records WHERE id = ?').run(record.id)
+  
+  res.json({ success: true, undone: record })
 })
 
 app.get('/api/evaluations', (req, res) => {
@@ -268,19 +329,6 @@ app.get('/api/evaluations', (req, res) => {
   
   const records = db.prepare(query).all(...params)
   res.json({ records })
-})
-
-// Shop
-app.get('/api/shop/items', (req, res) => {
-  const items = db.prepare('SELECT * FROM shop_items ORDER BY price').all()
-  res.json({ items })
-})
-
-app.post('/api/shop/items', (req, res) => {
-  const { name, description, price, stock } = req.body
-  const id = uuidv4()
-  db.prepare('INSERT INTO shop_items (id, name, description, price, stock) VALUES (?, ?, ?, ?, ?)').run(id, name, description, price, stock)
-  res.json({ id, name, description, price, stock })
 })
 
 // Ranking

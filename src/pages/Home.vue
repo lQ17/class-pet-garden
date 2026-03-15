@@ -47,6 +47,7 @@ const showStudentModal = ref(false)
 const showEvalModal = ref(false)
 const showRankModal = ref(false)
 const showPetModal = ref(false)
+const showRecordsModal = ref(false)
 const newClassName = ref('')
 const newStudentName = ref('')
 const newStudentNo = ref('')
@@ -55,6 +56,7 @@ const selectedCategory = ref('学习')
 const selectedPoints = ref(0)
 const selectedReason = ref('')
 const selectedPetCategory = ref<'normal' | 'mythical'>('normal')
+const evaluationRecords = ref<any[]>([])
 
 // Computed
 const filteredStudents = computed(() => {
@@ -190,24 +192,62 @@ async function addEvaluation(student: Student) {
 
 async function submitEvaluation() {
   if (!selectedStudent.value || !selectedReason.value || !currentClass.value) return
-  await api.post('/evaluations', {
-    classId: currentClass.value.id,
-    studentId: selectedStudent.value.id,
-    points: selectedPoints.value,
-    reason: selectedReason.value,
-    category: selectedCategory.value
-  })
-  showEvalModal.value = false
-  selectedReason.value = ''
-  selectedPoints.value = 0
-  selectedCategory.value = '学习'
-  await loadStudents()
+  try {
+    const res = await api.post('/evaluations', {
+      classId: currentClass.value.id,
+      studentId: selectedStudent.value.id,
+      points: selectedPoints.value,
+      reason: selectedReason.value,
+      category: selectedCategory.value
+    })
+    
+    // Show level up message
+    if (res.data.levelUp) {
+      const pet = getPetType(selectedStudent.value.pet_type || '')
+      alert(`🎉 ${selectedStudent.value.name} 的${pet?.name || '宠物'}升级到了 Lv.${res.data.petLevel}！`)
+    }
+    if (res.data.graduated) {
+      alert(`🎓 恭喜！${selectedStudent.value.name} 的宠物毕业了，获得了专属徽章！`)
+    }
+    
+    showEvalModal.value = false
+    selectedReason.value = ''
+    selectedPoints.value = 0
+    selectedCategory.value = '学习'
+    await loadStudents()
+  } catch (error) {
+    console.error('评价失败:', error)
+    alert('评价失败，请重试')
+  }
 }
 
 function selectRule(rule: Rule) {
   selectedPoints.value = rule.points
   selectedReason.value = rule.name
   selectedCategory.value = rule.category
+}
+
+async function loadEvaluationRecords() {
+  if (!currentClass.value) return
+  const res = await api.get(`/evaluations?classId=${currentClass.value.id}&limit=50`)
+  evaluationRecords.value = res.data.records
+}
+
+async function undoLastEvaluation() {
+  if (!currentClass.value) return
+  if (!confirm('确定要撤回最近一次评价吗？')) return
+  
+  try {
+    const res = await api.delete(`/evaluations/latest?classId=${currentClass.value.id}`)
+    if (res.data.success) {
+      alert(`已撤回：${res.data.undone.student_name} ${res.data.undone.points > 0 ? '+' : ''}${res.data.undone.points}分`)
+      await loadStudents()
+      await loadEvaluationRecords()
+    }
+  } catch (error) {
+    console.error('撤回失败:', error)
+    alert('撤回失败')
+  }
 }
 
 function getStudentPetImage(student: Student): string {
@@ -257,15 +297,17 @@ onMounted(() => {
         </button>
         
         <button 
-          class="w-full text-left px-3 py-2 rounded hover:bg-gray-100 text-sm"
-        >
-          🛒 小商店
-        </button>
-        
-        <button 
+          @click="loadEvaluationRecords(); showRecordsModal = true"
           class="w-full text-left px-3 py-2 rounded hover:bg-gray-100 text-sm"
         >
           📋 评价记录
+        </button>
+        
+        <button 
+          @click="undoLastEvaluation()"
+          class="w-full text-left px-3 py-2 rounded hover:bg-gray-100 text-sm text-orange-600"
+        >
+          ↩️ 撤回评价
         </button>
       </div>
       
@@ -566,6 +608,43 @@ onMounted(() => {
 
         <div class="flex justify-end mt-4">
           <button @click="showRankModal = false" class="px-4 py-2 text-gray-500">关闭</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Records Modal -->
+    <div v-if="showRecordsModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-xl p-6 w-[500px] max-h-[80vh] overflow-auto">
+        <h3 class="text-lg font-bold mb-4">📋 评价记录</h3>
+        
+        <div v-if="evaluationRecords.length === 0" class="text-center py-8 text-gray-500">
+          暂无记录
+        </div>
+        
+        <div v-else class="space-y-2">
+          <div 
+            v-for="record in evaluationRecords" 
+            :key="record.id"
+            class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
+          >
+            <div class="flex-1">
+              <div class="font-medium">{{ record.student_name }}</div>
+              <div class="text-sm text-gray-600">{{ record.reason }}</div>
+              <div class="text-xs text-gray-400">{{ new Date(record.timestamp).toLocaleString('zh-CN') }}</div>
+            </div>
+            <div class="text-right">
+              <span 
+                class="font-bold"
+                :class="record.points > 0 ? 'text-green-600' : 'text-red-600'"
+              >
+                {{ record.points > 0 ? '+' : '' }}{{ record.points }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-end mt-4">
+          <button @click="showRecordsModal = false" class="px-4 py-2 text-gray-500">关闭</button>
         </div>
       </div>
     </div>
