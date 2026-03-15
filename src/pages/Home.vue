@@ -45,7 +45,6 @@ const sortAsc = ref(true)
 const showClassModal = ref(false)
 const showStudentModal = ref(false)
 const showAddModal = ref(false)
-const showSubModal = ref(false)
 const showRankModal = ref(false)
 const showPetModal = ref(false)
 const showRecordsModal = ref(false)
@@ -55,6 +54,7 @@ const newStudentNo = ref('')
 const selectedStudent = ref<Student | null>(null)
 const selectedPetCategory = ref<'normal' | 'mythical'>('normal')
 const evaluationRecords = ref<any[]>([])
+const selectedEvalTab = ref('学习')
 
 // Computed
 const filteredStudents = computed(() => {
@@ -68,6 +68,12 @@ const filteredStudents = computed(() => {
 
 const addRules = computed(() => rules.value.filter(r => r.points > 0))
 const subRules = computed(() => rules.value.filter(r => r.points < 0))
+
+const categories = ['学习', '行为', '健康', '其他']
+
+const currentCategoryRules = computed(() => {
+  return rules.value.filter(r => r.category === selectedEvalTab.value)
+})
 
 const filteredPets = computed(() => {
   return PET_TYPES.filter(p => p.category === selectedPetCategory.value)
@@ -183,12 +189,8 @@ async function selectPet(petId: string) {
 
 function openAddModal(student: Student) {
   selectedStudent.value = student
+  selectedEvalTab.value = '学习'
   showAddModal.value = true
-}
-
-function openSubModal(student: Student) {
-  selectedStudent.value = student
-  showSubModal.value = true
 }
 
 async function quickAdd(student: Student, rule: Rule) {
@@ -371,19 +373,26 @@ onMounted(() => {
           <div 
             v-for="student in filteredStudents" 
             :key="student.id"
-            class="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition"
+            class="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition cursor-pointer"
+            @click="openAddModal(student)"
           >
             <!-- Pet Image -->
-            <div 
-              class="aspect-square bg-orange-50 flex items-center justify-center overflow-hidden cursor-pointer relative"
-              @click="openPetSelect(student)"
-            >
+            <div class="aspect-square bg-orange-50 flex items-center justify-center overflow-hidden relative">
               <img 
                 v-if="student.pet_type" 
                 :src="getStudentPetImage(student)" 
                 class="w-full h-full object-cover"
               />
               <span v-else class="text-6xl">❓</span>
+              
+              <!-- Change Pet Button -->
+              <button 
+                @click.stop="openPetSelect(student)"
+                class="absolute top-2 left-2 w-7 h-7 bg-white/80 hover:bg-white rounded-full flex items-center justify-center text-gray-500 hover:text-primary text-xs shadow"
+                title="更换宠物"
+              >
+                🔄
+              </button>
               
               <!-- Points Badge -->
               <div class="absolute top-2 right-2 bg-primary text-white text-sm font-bold px-2 py-0.5 rounded-full">
@@ -397,27 +406,11 @@ onMounted(() => {
                 <span class="font-bold text-gray-800">{{ student.name }}</span>
                 <span class="text-sm text-gray-500">Lv.{{ student.pet_level }}</span>
               </div>
-              <div class="bg-gray-200 rounded-full h-1.5 mb-3">
+              <div class="bg-gray-200 rounded-full h-1.5">
                 <div 
                   class="bg-primary rounded-full h-1.5 transition-all"
                   :style="{ width: `${Math.min(100, (getLevelProgress(student.pet_exp).current / getLevelProgress(student.pet_exp).required) * 100)}%` }"
                 ></div>
-              </div>
-              
-              <!-- Actions -->
-              <div class="flex gap-2">
-                <button 
-                  @click="openAddModal(student)"
-                  class="flex-1 bg-green-500 text-white py-2 rounded-lg text-lg font-bold hover:bg-green-600 transition"
-                >
-                  +
-                </button>
-                <button 
-                  @click="openSubModal(student)"
-                  class="flex-1 bg-red-500 text-white py-2 rounded-lg text-lg font-bold hover:bg-red-600 transition"
-                >
-                  -
-                </button>
               </div>
             </div>
           </div>
@@ -466,52 +459,51 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Add Points Modal -->
+    <!-- Add/Sub Points Modal -->
     <div v-if="showAddModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-xl p-6 w-[400px] max-h-[80vh] overflow-auto">
+      <div class="bg-white rounded-xl p-6 w-[500px] max-h-[80vh] overflow-auto">
         <h3 class="text-lg font-bold mb-4">
-          为 <span class="text-primary">{{ selectedStudent?.name }}</span> 加分
+          为 <span class="text-primary">{{ selectedStudent?.name }}</span> 评价
         </h3>
         
+        <!-- Category Tabs -->
+        <div class="flex gap-2 mb-4 border-b pb-2">
+          <button 
+            v-for="cat in categories" 
+            :key="cat"
+            @click="selectedEvalTab = cat"
+            class="px-4 py-2 rounded-lg text-sm font-medium transition"
+            :class="selectedEvalTab === cat ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+          >
+            {{ cat }}
+          </button>
+        </div>
+        
+        <!-- Rules Grid -->
         <div class="grid grid-cols-2 gap-2">
           <button 
-            v-for="rule in addRules" 
+            v-for="rule in currentCategoryRules" 
             :key="rule.id"
             @click="quickAdd(selectedStudent!, rule); showAddModal = false"
-            class="bg-green-50 border border-green-200 rounded-lg p-3 text-left hover:bg-green-100 transition"
+            class="rounded-lg p-3 text-left transition border-2"
+            :class="rule.points > 0 ? 'bg-green-50 border-green-200 hover:bg-green-100' : 'bg-red-50 border-red-200 hover:bg-red-100'"
           >
-            <div class="font-bold text-green-600">+{{ rule.points }}</div>
-            <div class="text-sm text-gray-700">{{ rule.name }}</div>
+            <div class="flex items-center justify-between">
+              <span 
+                class="font-bold text-lg"
+                :class="rule.points > 0 ? 'text-green-600' : 'text-red-600'"
+              >
+                {{ rule.points > 0 ? '+' : '' }}{{ rule.points }}
+              </span>
+              <span v-if="rule.points > 0" class="text-green-500 text-sm">加分</span>
+              <span v-else class="text-red-500 text-sm">扣分</span>
+            </div>
+            <div class="text-sm text-gray-700 mt-1">{{ rule.name }}</div>
           </button>
         </div>
 
         <div class="flex justify-end mt-4">
-          <button @click="showAddModal = false" class="px-4 py-2 text-gray-500">取消</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Subtract Points Modal -->
-    <div v-if="showSubModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-xl p-6 w-[400px] max-h-[80vh] overflow-auto">
-        <h3 class="text-lg font-bold mb-4">
-          为 <span class="text-red-500">{{ selectedStudent?.name }}</span> 扣分
-        </h3>
-        
-        <div class="grid grid-cols-2 gap-2">
-          <button 
-            v-for="rule in subRules" 
-            :key="rule.id"
-            @click="quickAdd(selectedStudent!, rule); showSubModal = false"
-            class="bg-red-50 border border-red-200 rounded-lg p-3 text-left hover:bg-red-100 transition"
-          >
-            <div class="font-bold text-red-600">{{ rule.points }}</div>
-            <div class="text-sm text-gray-700">{{ rule.name }}</div>
-          </button>
-        </div>
-
-        <div class="flex justify-end mt-4">
-          <button @click="showSubModal = false" class="px-4 py-2 text-gray-500">取消</button>
+          <button @click="showAddModal = false" class="px-4 py-2 text-gray-500 hover:text-gray-700">取消</button>
         </div>
       </div>
     </div>
