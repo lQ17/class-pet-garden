@@ -990,22 +990,22 @@ onMounted(() => {
           暂无记录
         </div>
         
-        <div v-else class="space-y-3">
+        <div v-else class="grid grid-cols-2 gap-3">
           <div 
             v-for="record in paginatedRecords" 
             :key="record.id"
-            class="p-4 bg-white border rounded-xl shadow-sm hover:shadow-md transition-shadow"
+            class="p-3 bg-white border rounded-xl shadow-sm hover:shadow-md transition-shadow"
           >
             <!-- Header: 学生名 + 分数 -->
             <div class="flex items-center justify-between mb-2">
               <div class="flex items-center gap-2">
-                <span class="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 text-white flex items-center justify-center text-sm font-bold">
+                <span class="w-7 h-7 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 text-white flex items-center justify-center text-xs font-bold">
                   {{ record.student_name.charAt(0) }}
                 </span>
-                <span class="font-bold text-gray-800">{{ record.student_name }}</span>
+                <span class="font-bold text-gray-800 text-sm">{{ record.student_name }}</span>
               </div>
               <span 
-                class="px-3 py-1 rounded-full text-sm font-bold"
+                class="px-2 py-0.5 rounded-full text-xs font-bold"
                 :class="record.points > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'"
               >
                 {{ record.points > 0 ? '+' : '' }}{{ record.points }}
@@ -1013,13 +1013,13 @@ onMounted(() => {
             </div>
             
             <!-- 评价原因 -->
-            <div class="text-sm text-gray-600 mb-2 pl-10">
+            <div class="text-xs text-gray-600 mb-2 line-clamp-2">
               {{ record.reason }}
             </div>
             
             <!-- Footer: 分类 + 时间 -->
-            <div class="flex items-center justify-between text-xs text-gray-400 pl-10">
-              <span class="px-2 py-0.5 bg-gray-100 rounded">{{ record.category }}</span>
+            <div class="flex items-center justify-between text-xs text-gray-400">
+              <span class="px-1.5 py-0.5 bg-gray-100 rounded text-xs">{{ record.category }}</span>
               <span>{{ new Date(record.timestamp).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) }}</span>
             </div>
           </div>
