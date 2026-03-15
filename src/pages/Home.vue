@@ -551,9 +551,9 @@ onMounted(() => {
                 🔄
               </button>
               
-              <!-- Points Badge -->
-              <div class="absolute top-2 right-2 bg-primary text-white text-sm font-bold px-2 py-0.5 rounded-full">
-                +{{ student.total_points }}
+              <!-- Level Badge -->
+              <div class="absolute top-2 right-2 bg-purple-500 text-white text-sm font-bold px-2.5 py-0.5 rounded-full shadow">
+                Lv.{{ student.pet_level }}
               </div>
             </div>
             
@@ -561,11 +561,11 @@ onMounted(() => {
             <div class="p-3">
               <div class="flex items-center justify-between mb-1">
                 <span class="font-bold text-gray-800">{{ student.name }}</span>
-                <span class="text-sm text-gray-500">Lv.{{ student.pet_level }}</span>
+                <span class="text-sm font-bold text-primary">+{{ student.total_points }}分</span>
               </div>
               <div class="bg-gray-200 rounded-full h-1.5">
                 <div 
-                  class="bg-primary rounded-full h-1.5 transition-all"
+                  class="bg-purple-500 rounded-full h-1.5 transition-all"
                   :style="{ width: `${getLevelProgress(student.pet_exp).percentage}%` }"
                 ></div>
               </div>
