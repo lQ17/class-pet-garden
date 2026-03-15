@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import axios from 'axios'
+import { PET_TYPES, getPetType, calculateLevel, getLevelProgress } from '@/data/pets'
 
 // Types
 interface Class {
@@ -48,6 +49,7 @@ const selectedStudent = ref<Student | null>(null)
 const selectedCategory = ref('学习')
 const selectedPoints = ref(0)
 const selectedReason = ref('')
+const selectedPetCategory = ref<'normal' | 'mythical'>('normal')
 
 // Computed
 const filteredStudents = computed(() => {
@@ -66,6 +68,14 @@ const rulesByCategory = computed(() => {
     result[rule.category].push(rule)
   }
   return result
+})
+
+const filteredPets = computed(() => {
+  return PET_TYPES.filter(p => p.category === selectedPetCategory.value)
+})
+
+const ranking = computed(() => {
+  return [...students.value].sort((a, b) => b.total_points - a.total_points)
 })
 
 // API calls
@@ -130,6 +140,19 @@ async function deleteStudent(id: string) {
   await loadStudents()
 }
 
+async function openPetSelect(student: Student) {
+  selectedStudent.value = student
+  showPetModal.value = true
+}
+
+async function selectPet(petId: string) {
+  if (!selectedStudent.value) return
+  await axios.put(`/api/students/${selectedStudent.value.id}/pet`, { petType: petId })
+  showPetModal.value = false
+  selectedStudent.value = null
+  await loadStudents()
+}
+
 async function addEvaluation(student: Student) {
   selectedStudent.value = student
   showEvalModal.value = true
@@ -155,6 +178,12 @@ function selectRule(rule: Rule) {
   selectedPoints.value = rule.points
   selectedReason.value = rule.name
   selectedCategory.value = rule.category
+}
+
+function getStudentPetImage(student: Student): string {
+  if (!student.pet_type) return ''
+  const pet = getPetType(student.pet_type)
+  return pet?.image || ''
 }
 
 // Initialize
@@ -281,12 +310,17 @@ onMounted(() => {
           <div 
             v-for="student in filteredStudents" 
             :key="student.id"
-            class="bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition cursor-pointer group"
+            class="bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition cursor-pointer group relative"
             @click="addEvaluation(student)"
           >
             <div class="text-center">
-              <div class="text-4xl mb-2">
-                {{ student.pet_type ? '🐾' : '❓' }}
+              <div class="w-16 h-16 mx-auto mb-2 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center" @click.stop="openPetSelect(student)">
+                <img 
+                  v-if="student.pet_type" 
+                  :src="getStudentPetImage(student)" 
+                  class="w-14 h-14 object-contain"
+                />
+                <span v-else class="text-3xl">❓</span>
               </div>
               <div class="font-bold text-gray-800">{{ student.name }}</div>
               <div v-if="student.student_no" class="text-xs text-gray-400">{{ student.student_no }}</div>
@@ -297,13 +331,13 @@ onMounted(() => {
               <div class="mt-2 bg-gray-200 rounded-full h-2">
                 <div 
                   class="bg-primary rounded-full h-2 transition-all"
-                  :style="{ width: `${Math.min(100, (student.pet_exp % 40) * 2.5)}%` }"
+                  :style="{ width: `${Math.min(100, (getLevelProgress(student.pet_exp).current / getLevelProgress(student.pet_exp).required) * 100)}%` }"
                 ></div>
               </div>
             </div>
             <button 
               @click.stop="deleteStudent(student.id)"
-              class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 text-xs"
+              class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 text-xs bg-white rounded-full w-5 h-5 flex items-center justify-center"
             >
               ✕
             </button>
@@ -408,6 +442,96 @@ onMounted(() => {
         <div class="flex gap-2 justify-end">
           <button @click="showEvalModal = false" class="px-4 py-2 text-gray-500">取消</button>
           <button @click="submitEvaluation" class="bg-primary text-white px-4 py-2 rounded-lg">确认</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pet Select Modal -->
+    <div v-if="showPetModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-xl p-6 w-[600px] max-h-[80vh] overflow-auto">
+        <h3 class="text-lg font-bold mb-4">
+          为 <span class="text-primary">{{ selectedStudent?.name }}</span> 选择宠物伙伴
+        </h3>
+        
+        <!-- Category Tabs -->
+        <div class="flex gap-2 mb-4">
+          <button 
+            @click="selectedPetCategory = 'normal'"
+            class="px-4 py-2 rounded-lg text-sm font-medium transition"
+            :class="selectedPetCategory === 'normal' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600'"
+          >
+            🐾 普通动物 (16种)
+          </button>
+          <button 
+            @click="selectedPetCategory = 'mythical'"
+            class="px-4 py-2 rounded-lg text-sm font-medium transition"
+            :class="selectedPetCategory === 'mythical' ? 'bg-purple-500 text-white' : 'bg-gray-100 text-gray-600'"
+          >
+            ✨ 神兽 (7种)
+          </button>
+        </div>
+
+        <!-- Pet Grid -->
+        <div class="grid grid-cols-4 gap-3">
+          <button 
+            v-for="pet in filteredPets" 
+            :key="pet.id"
+            @click="selectPet(pet.id)"
+            class="bg-gray-50 rounded-xl p-3 hover:bg-orange-50 hover:ring-2 hover:ring-primary transition text-center"
+          >
+            <img :src="pet.image" class="w-12 h-12 mx-auto object-contain" />
+            <div class="text-xs font-medium mt-1 text-gray-700">{{ pet.name }}</div>
+          </button>
+        </div>
+
+        <div class="flex justify-end mt-4">
+          <button @click="showPetModal = false" class="px-4 py-2 text-gray-500">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ranking Modal -->
+    <div v-if="showRankModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-xl p-6 w-[500px] max-h-[80vh] overflow-auto">
+        <h3 class="text-lg font-bold mb-4">🏆 排行榜</h3>
+        
+        <div v-if="ranking.length === 0" class="text-center py-8 text-gray-500">
+          暂无数据
+        </div>
+        
+        <div v-else class="space-y-2">
+          <div 
+            v-for="(student, index) in ranking" 
+            :key="student.id"
+            class="flex items-center gap-3 p-3 rounded-lg"
+            :class="index < 3 ? 'bg-yellow-50' : 'bg-gray-50'"
+          >
+            <div class="w-8 text-center font-bold text-lg">
+              <span v-if="index === 0">🥇</span>
+              <span v-else-if="index === 1">🥈</span>
+              <span v-else-if="index === 2">🥉</span>
+              <span v-else class="text-gray-400">{{ index + 1 }}</span>
+            </div>
+            <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+              <img 
+                v-if="student.pet_type" 
+                :src="getStudentPetImage(student)" 
+                class="w-8 h-8 object-contain"
+              />
+              <span v-else>❓</span>
+            </div>
+            <div class="flex-1">
+              <div class="font-medium">{{ student.name }}</div>
+              <div class="text-xs text-gray-500">Lv.{{ student.pet_level }}</div>
+            </div>
+            <div class="text-right">
+              <div class="font-bold text-primary">+{{ student.total_points }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-end mt-4">
+          <button @click="showRankModal = false" class="px-4 py-2 text-gray-500">关闭</button>
         </div>
       </div>
     </div>

@@ -196,6 +196,29 @@ app.delete('/api/students/:id', (req, res) => {
   res.json({ success: true })
 })
 
+// Pet
+app.put('/api/students/:id/pet', (req, res) => {
+  const { petType } = req.body
+  const now = Date.now()
+  
+  // Get current student
+  const student = db.prepare('SELECT * FROM students WHERE id = ?').get(req.params.id)
+  if (!student) {
+    return res.status(404).json({ error: 'Student not found' })
+  }
+  
+  // If student already has a pet, create a badge for it if level is 8
+  if (student.pet_type && student.pet_level >= 8) {
+    const badgeId = uuidv4()
+    db.prepare('INSERT INTO badges (id, student_id, pet_type, earned_at) VALUES (?, ?, ?, ?)').run(badgeId, req.params.id, student.pet_type, now)
+  }
+  
+  // Update pet
+  db.prepare('UPDATE students SET pet_type = ?, pet_level = 1, pet_exp = 0 WHERE id = ?').run(petType, req.params.id)
+  
+  res.json({ success: true, petType, petLevel: 1, petExp: 0 })
+})
+
 // Evaluation Rules
 app.get('/api/rules', (req, res) => {
   const rules = db.prepare('SELECT * FROM evaluation_rules ORDER BY category, points DESC').all()
