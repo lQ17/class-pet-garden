@@ -990,24 +990,37 @@ onMounted(() => {
           暂无记录
         </div>
         
-        <div v-else class="space-y-2">
+        <div v-else class="space-y-3">
           <div 
             v-for="record in paginatedRecords" 
             :key="record.id"
-            class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
+            class="p-4 bg-white border rounded-xl shadow-sm hover:shadow-md transition-shadow"
           >
-            <div class="flex-1">
-              <div class="font-medium">{{ record.student_name }}</div>
-              <div class="text-sm text-gray-600">{{ record.reason }}</div>
-              <div class="text-xs text-gray-400">{{ new Date(record.timestamp).toLocaleString('zh-CN') }}</div>
-            </div>
-            <div class="text-right">
+            <!-- Header: 学生名 + 分数 -->
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center gap-2">
+                <span class="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 text-white flex items-center justify-center text-sm font-bold">
+                  {{ record.student_name.charAt(0) }}
+                </span>
+                <span class="font-bold text-gray-800">{{ record.student_name }}</span>
+              </div>
               <span 
-                class="font-bold"
-                :class="record.points > 0 ? 'text-green-600' : 'text-red-600'"
+                class="px-3 py-1 rounded-full text-sm font-bold"
+                :class="record.points > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'"
               >
                 {{ record.points > 0 ? '+' : '' }}{{ record.points }}
               </span>
+            </div>
+            
+            <!-- 评价原因 -->
+            <div class="text-sm text-gray-600 mb-2 pl-10">
+              {{ record.reason }}
+            </div>
+            
+            <!-- Footer: 分类 + 时间 -->
+            <div class="flex items-center justify-between text-xs text-gray-400 pl-10">
+              <span class="px-2 py-0.5 bg-gray-100 rounded">{{ record.category }}</span>
+              <span>{{ new Date(record.timestamp).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) }}</span>
             </div>
           </div>
         </div>
