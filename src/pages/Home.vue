@@ -66,6 +66,10 @@ const selectedStudents = ref<Set<string>>(new Set())
 const showClassMenu = ref(false)
 const showStudentMenu = ref(false)
 const showEvalMenu = ref(false)
+const showDeleteStudentMode = ref(false)
+const deleteStudentList = ref<string[]>([])
+const recordsPage = ref(1)
+const recordsPageSize = 20
 
 // Computed
 const filteredStudents = computed(() => {
@@ -362,9 +366,21 @@ async function quickAdd(student: Student | null, rule: Rule) {
 
 async function loadEvaluationRecords() {
   if (!currentClass.value) return
-  const res = await api.get(`/evaluations?classId=${currentClass.value.id}&limit=50`)
+  const res = await api.get(`/evaluations?classId=${currentClass.value.id}&limit=200`)
   evaluationRecords.value = res.data.records
+  totalRecords.value = res.data.records.length
+  recordsPage.value = 1
 }
+
+const paginatedRecords = computed(() => {
+  const start = (recordsPage.value - 1) * recordsPageSize
+  const end = start + recordsPageSize
+  return evaluationRecords.value.slice(start, end)
+})
+
+const totalPages = computed(() => {
+  return Math.ceil(totalRecords.value / recordsPageSize)
+})
 
 async function undoLastEvaluation() {
   if (!currentClass.value) return
@@ -498,38 +514,17 @@ onMounted(() => {
           class="border rounded-lg px-3 py-1.5 text-sm w-32"
         />
         
-        <!-- Quick Actions -->
-        <button 
-          @click="showRankModal = true"
-          class="px-3 py-1.5 rounded-lg text-sm bg-gray-100 hover:bg-gray-200"
-        >
-          🏆 排行榜
-        </button>
-        
-        <button 
-          v-if="currentClass && !batchMode"
-          @click="startBatchMode"
-          class="px-3 py-1.5 rounded-lg text-sm bg-purple-500 text-white hover:bg-purple-600"
-        >
-          ✅ 批量评价
-        </button>
-        
-        <template v-if="batchMode">
-          <span class="text-sm text-purple-600 font-medium">已选 {{ selectedStudents.size }} 人</span>
-          <button @click="selectAllStudents" class="px-3 py-1.5 rounded-lg text-sm bg-blue-500 text-white hover:bg-blue-600">全选</button>
-          <button @click="cancelBatchMode" class="px-3 py-1.5 rounded-lg text-sm bg-gray-500 text-white hover:bg-gray-600">取消</button>
-        </template>
-        
         <!-- Class Menu -->
         <div class="relative" v-if="!batchMode">
           <button @click="showClassMenu = !showClassMenu" class="px-3 py-1.5 rounded-lg text-sm bg-gray-100 hover:bg-gray-200">
             📚 班级管理 ▾
           </button>
+          <div v-if="showClassMenu" @click="showClassMenu = false" class="fixed inset-0 z-40"></div>
           <div v-if="showClassMenu" class="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border py-1 w-40 z-50">
-            <button @click="showClassModal = true; showClassMenu = false" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100">➕ 新建班级</button>
-            <button v-if="currentClass" @click="deleteClass(currentClass.id); showClassMenu = false" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100">🗑️ 删除班级</button>
+            <button @click="showClassModal = true" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100">➕ 新建班级</button>
+            <button v-if="currentClass" @click="deleteClass(currentClass.id)" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100">🗑️ 删除班级</button>
             <hr class="my-1">
-            <button @click="exportBackup(); showClassMenu = false" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100">💾 导出备份</button>
+            <button @click="exportBackup" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100">💾 导出备份</button>
             <label class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer block">
               📥 导入恢复
               <input type="file" accept=".json" @change="importBackup" class="hidden" />
@@ -542,9 +537,11 @@ onMounted(() => {
           <button @click="showStudentMenu = !showStudentMenu" class="px-3 py-1.5 rounded-lg text-sm bg-gray-100 hover:bg-gray-200">
             👨‍🎓 学生管理 ▾
           </button>
+          <div v-if="showStudentMenu" @click="showStudentMenu = false" class="fixed inset-0 z-40"></div>
           <div v-if="showStudentMenu" class="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border py-1 w-40 z-50">
-            <button @click="showStudentModal = true; showStudentMenu = false" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100">➕ 添加学生</button>
-            <button @click="openImportModal(); showStudentMenu = false" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100">📥 批量导入</button>
+            <button @click="showStudentModal = true" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100">➕ 添加学生</button>
+            <button @click="openImportModal" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100">📥 批量导入</button>
+            <button @click="showDeleteStudentMode = true; deleteStudentList = []" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100">🗑️ 删除学生</button>
           </div>
         </div>
         
@@ -553,14 +550,23 @@ onMounted(() => {
           <button @click="showEvalMenu = !showEvalMenu" class="px-3 py-1.5 rounded-lg text-sm bg-gray-100 hover:bg-gray-200">
             ⭐ 评价管理 ▾
           </button>
+          <div v-if="showEvalMenu" @click="showEvalMenu = false" class="fixed inset-0 z-40"></div>
           <div v-if="showEvalMenu" class="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border py-1 w-40 z-50">
-            <button @click="showRankModal = true; showEvalMenu = false" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100">🏆 排行榜</button>
-            <button @click="loadEvaluationRecords(); showRecordsModal = true; showEvalMenu = false" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100">📋 评价记录</button>
-            <button @click="undoLastEvaluation(); showEvalMenu = false" class="w-full text-left px-4 py-2 text-sm text-orange-600 hover:bg-gray-100">↩️ 撤回评价</button>
+            <button @click="startBatchMode" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100">✅ 批量评价</button>
+            <button @click="showRankModal = true" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100">🏆 排行榜</button>
+            <button @click="loadEvaluationRecords(); showRecordsModal = true" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100">📋 评价记录</button>
+            <button @click="undoLastEvaluation()" class="w-full text-left px-4 py-2 text-sm text-orange-600 hover:bg-gray-100">↩️ 撤回评价</button>
             <hr class="my-1">
-            <button @click="showRulesModal = true; showEvalMenu = false" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100">⚙️ 管理规则</button>
+            <button @click="showRulesModal = true" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100">⚙️ 管理规则</button>
           </div>
         </div>
+        
+        <!-- Batch Mode Actions -->
+        <template v-if="batchMode">
+          <span class="text-sm text-purple-600 font-medium">已选 {{ selectedStudents.size }} 人</span>
+          <button @click="selectAllStudents" class="px-3 py-1.5 rounded-lg text-sm bg-blue-500 text-white hover:bg-blue-600">全选</button>
+          <button @click="cancelBatchMode" class="px-3 py-1.5 rounded-lg text-sm bg-gray-500 text-white hover:bg-gray-600">取消</button>
+        </template>
       </div>
     </header>
 
@@ -657,6 +663,12 @@ onMounted(() => {
             class="bg-red-500 text-white px-6 py-3 rounded-lg font-bold hover:bg-red-600 transition"
           >
             ⬇️ 统一扣分
+          </button>
+          <button 
+            @click="batchDeleteStudents"
+            class="bg-gray-500 text-white px-6 py-3 rounded-lg font-bold hover:bg-gray-600 transition"
+          >
+            🗑️ 删除选中
           </button>
         </div>
       </div>
