@@ -239,6 +239,14 @@ async function selectPet(petId: string) {
 }
 
 function openAddModal(student: Student) {
+  // 如果没有宠物，先提示领养
+  if (!student.pet_type) {
+    if (confirm(`${student.name} 还没有领养宠物，是否现在领养？`)) {
+      selectedStudent.value = student
+      showPetModal.value = true
+    }
+    return
+  }
   selectedStudent.value = student
   selectedEvalTab.value = '学习'
   showAddModal.value = true

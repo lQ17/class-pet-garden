@@ -272,43 +272,45 @@ app.post('/api/evaluations', (req, res) => {
   // Update student points
   db.prepare('UPDATE students SET total_points = total_points + ? WHERE id = ?').run(points, studentId)
   
-  // Update pet exp (only for positive points and if student has a pet)
-  if (points > 0) {
-    const student = db.prepare('SELECT * FROM students WHERE id = ?').get(studentId)
-    if (student && student.pet_type) {
-      const newExp = student.pet_exp + points
-      let newLevel = student.pet_level
-      
-      // Level up logic
+  // Get student info
+  const student = db.prepare('SELECT * FROM students WHERE id = ?').get(studentId)
+  
+  // Update pet exp if student has a pet
+  if (student && student.pet_type) {
+    const newExp = Math.max(0, student.pet_exp + points) // 扣分时不能变成负数
+    let newLevel = student.pet_level
+    
+    // Level up logic (only for positive exp)
+    if (newExp > 0) {
       const levelConfig = [40, 60, 80, 100, 120, 140, 160]
       let totalRequired = 0
       for (let i = 0; i < levelConfig.length; i++) {
         totalRequired += levelConfig[i]
         if (newExp >= totalRequired) {
-          newLevel = i + 2 // Level starts at 1, so index + 2
+          newLevel = i + 2
         }
       }
-      newLevel = Math.min(newLevel, 8) // Max level is 8
-      
-      // Check if pet graduated (reached level 8)
-      let graduated = false
-      if (newLevel === 8 && student.pet_level < 8) {
-        const badgeId = uuidv4()
-        db.prepare('INSERT INTO badges (id, student_id, pet_type, earned_at) VALUES (?, ?, ?, ?)').run(badgeId, studentId, student.pet_type, now)
-        graduated = true
-      }
-      
-      db.prepare('UPDATE students SET pet_exp = ?, pet_level = ? WHERE id = ?').run(newExp, newLevel, studentId)
-      
-      return res.json({ 
-        id, 
-        timestamp: now, 
-        petLevel: newLevel, 
-        petExp: newExp,
-        levelUp: newLevel > student.pet_level,
-        graduated
-      })
+      newLevel = Math.min(newLevel, 8)
     }
+    
+    // Check if pet graduated (reached level 8)
+    let graduated = false
+    if (newLevel === 8 && student.pet_level < 8) {
+      const badgeId = uuidv4()
+      db.prepare('INSERT INTO badges (id, student_id, pet_type, earned_at) VALUES (?, ?, ?, ?)').run(badgeId, studentId, student.pet_type, now)
+      graduated = true
+    }
+    
+    db.prepare('UPDATE students SET pet_exp = ?, pet_level = ? WHERE id = ?').run(newExp, newLevel, studentId)
+    
+    return res.json({ 
+      id, 
+      timestamp: now, 
+      petLevel: newLevel, 
+      petExp: newExp,
+      levelUp: newLevel > student.pet_level,
+      graduated
+    })
   }
   
   res.json({ id, timestamp: now })
@@ -382,8 +384,8 @@ app.get('/api/health', (req, res) => {
 
 // Fix pet_exp for existing students
 app.post('/api/fix-exp', (req, res) => {
-  // Update pet_exp to match total_points for students with pets
-  const result = db.prepare('UPDATE students SET pet_exp = total_points WHERE pet_type IS NOT NULL').run()
+  // Sync pet_exp with total_points for students with pets
+  const result = db.prepare('UPDATE students SET pet_exp = MAX(0, total_points) WHERE pet_type IS NOT NULL').run()
   res.json({ success: true, updated: result.changes })
 })
 
