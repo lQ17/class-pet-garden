@@ -3,6 +3,11 @@ import { ref, onMounted, computed } from 'vue'
 import axios from 'axios'
 import { PET_TYPES, getPetType, calculateLevel, getLevelProgress } from '@/data/pets'
 
+// 配置 axios baseURL
+const api = axios.create({
+  baseURL: '/pet-garden/api'
+})
+
 // Types
 interface Class {
   id: string
@@ -81,7 +86,7 @@ const ranking = computed(() => {
 // API calls
 async function loadClasses() {
   try {
-    const res = await axios.get('/api/classes')
+    const res = await api.get('/classes')
     classes.value = res.data.classes
     if (classes.value.length > 0) {
       // 如果没有当前班级，或当前班级不在列表中，选择第一个
@@ -104,12 +109,12 @@ async function selectClass(cls: Class) {
 
 async function loadStudents() {
   if (!currentClass.value) return
-  const res = await axios.get(`/api/classes/${currentClass.value.id}/students`)
+  const res = await api.get(`/classes/${currentClass.value.id}/students`)
   students.value = res.data.students
 }
 
 async function loadRules() {
-  const res = await axios.get('/api/rules')
+  const res = await api.get('/rules')
   rules.value = res.data.rules
 }
 
@@ -119,7 +124,7 @@ async function createClass() {
     return
   }
   try {
-    await axios.post('/api/classes', { name: newClassName.value.trim() })
+    await api.post('/classes', { name: newClassName.value.trim() })
     newClassName.value = ''
     showClassModal.value = false
     await loadClasses()
@@ -131,7 +136,7 @@ async function createClass() {
 
 async function deleteClass(id: string) {
   if (!confirm('确定删除该班级？所有学生数据将一并删除！')) return
-  await axios.delete(`/api/classes/${id}`)
+  await api.delete(`/classes/${id}`)
   if (currentClass.value?.id === id) {
     currentClass.value = null
     students.value = []
@@ -141,7 +146,7 @@ async function deleteClass(id: string) {
 
 async function addStudent() {
   if (!newStudentName.value.trim() || !currentClass.value) return
-  await axios.post('/api/students', {
+  await api.post('/students', {
     classId: currentClass.value.id,
     name: newStudentName.value.trim(),
     studentNo: newStudentNo.value.trim() || null
@@ -154,7 +159,7 @@ async function addStudent() {
 
 async function deleteStudent(id: string) {
   if (!confirm('确定删除该学生？')) return
-  await axios.delete(`/api/students/${id}`)
+  await api.delete(`/students/${id}`)
   await loadStudents()
 }
 
@@ -165,7 +170,7 @@ async function openPetSelect(student: Student) {
 
 async function selectPet(petId: string) {
   if (!selectedStudent.value) return
-  await axios.put(`/api/students/${selectedStudent.value.id}/pet`, { petType: petId })
+  await api.put(`/students/${selectedStudent.value.id}/pet`, { petType: petId })
   showPetModal.value = false
   selectedStudent.value = null
   await loadStudents()
@@ -178,7 +183,7 @@ async function addEvaluation(student: Student) {
 
 async function submitEvaluation() {
   if (!selectedStudent.value || !selectedReason.value || !currentClass.value) return
-  await axios.post('/api/evaluations', {
+  await api.post('/evaluations', {
     classId: currentClass.value.id,
     studentId: selectedStudent.value.id,
     points: selectedPoints.value,
