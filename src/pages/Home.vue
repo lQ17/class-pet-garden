@@ -54,7 +54,6 @@ const newStudentName = ref('')
 const newStudentNo = ref('')
 const importText = ref('')
 const selectedStudent = ref<Student | null>(null)
-const selectedPetCategory = ref<'normal' | 'mythical'>('normal')
 const evaluationRecords = ref<any[]>([])
 const selectedEvalTab = ref('学习')
 const showRulesModal = ref(false)
@@ -151,9 +150,7 @@ const currentCategoryRules = computed(() => {
   return rules.value.filter(r => r.category === selectedEvalTab.value)
 })
 
-const filteredPets = computed(() => {
-  return PET_TYPES.filter(p => p.category === selectedPetCategory.value)
-})
+
 
 const ranking = computed(() => {
   return [...students.value].sort((a, b) => b.total_points - a.total_points)
@@ -1261,62 +1258,34 @@ onMounted(async () => {
             <span>为 <span class="text-gradient bg-gradient-to-r from-orange-500 to-pink-500 bg-clip-text text-transparent">{{ selectedStudent?.name }}</span> 选择宠物伙伴</span>
           </h3>
           
-          <!-- 分类标签 -->
-          <div class="flex gap-2 mb-6">
+          <!-- 宠物网格 - 所有宠物混合显示 -->
+          <div class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
             <button 
-              @click="selectedPetCategory = 'normal'"
-              class="px-5 py-2.5 rounded-xl text-sm font-bold transition-all"
-              :class="selectedPetCategory === 'normal' 
-                ? 'bg-gradient-to-r from-orange-400 to-pink-500 text-white shadow-lg' 
-                : 'bg-gray-100 text-gray-600'"
-            >
-              🐾 普通动物 (18种)
-            </button>
-            <button 
-              @click="selectedPetCategory = 'mythical'"
-              class="px-5 py-2.5 rounded-xl text-sm font-bold transition-all"
-              :class="selectedPetCategory === 'mythical' 
-                ? 'bg-gradient-to-r from-purple-400 to-pink-500 text-white shadow-lg' 
-                : 'bg-gray-100 text-gray-600'"
-            >
-              ✨ 神兽 (7种)
-            </button>
-          </div>
-
-          <!-- 宠物网格 -->
-          <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <button 
-              v-for="pet in filteredPets" 
+              v-for="pet in PET_TYPES" 
               :key="pet.id"
               @click="selectPet(pet.id)"
-              class="bg-gradient-to-br from-orange-50 via-pink-50 to-purple-50 rounded-2xl p-5 hover:shadow-xl hover:scale-105 transition-all text-center group border-2 border-transparent hover:border-orange-300 relative overflow-hidden"
+              class="relative bg-white rounded-xl p-2 hover:shadow-lg hover:scale-105 transition-all text-center group border border-gray-100 hover:border-orange-200"
             >
-              <!-- 背景装饰 -->
-              <div class="absolute inset-0 bg-gradient-to-br from-orange-100/50 to-pink-100/50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-              
-              <!-- 图片容器 -->
-              <div class="relative w-24 h-24 mx-auto mb-3">
+              <!-- 图片容器 - 更大的图片，更少的留白 -->
+              <div class="relative w-full aspect-square mx-auto">
                 <!-- 加载动画 -->
-                <div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-orange-100 to-pink-100 rounded-2xl">
+                <div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-orange-50 to-pink-50 rounded-lg">
                   <div class="flex gap-1">
-                    <span class="w-2 h-2 bg-orange-400 rounded-full animate-bounce" style="animation-delay: 0ms"></span>
-                    <span class="w-2 h-2 bg-pink-400 rounded-full animate-bounce" style="animation-delay: 150ms"></span>
-                    <span class="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style="animation-delay: 300ms"></span>
+                    <span class="w-1.5 h-1.5 bg-orange-400 rounded-full animate-bounce" style="animation-delay: 0ms"></span>
+                    <span class="w-1.5 h-1.5 bg-pink-400 rounded-full animate-bounce" style="animation-delay: 150ms"></span>
+                    <span class="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style="animation-delay: 300ms"></span>
                   </div>
                 </div>
                 <!-- 宠物图片 -->
                 <img 
                   :src="getPetLevel1Image(pet.id)" 
-                  class="absolute inset-0 w-full h-full object-contain group-hover:scale-110 transition-transform duration-300 rounded-2xl"
+                  class="absolute inset-0 w-full h-full object-contain group-hover:scale-110 transition-transform duration-300 rounded-lg p-1"
                   @load="hideLoading($event)"
                 />
               </div>
               
-              <!-- 宠物名称 -->
-              <div class="text-base font-bold text-gray-700 group-hover:text-orange-500 transition-colors">{{ pet.name }}</div>
-              
-              <!-- 等级标签 -->
-              <div class="mt-1 text-xs text-gray-400">Lv.1</div>
+              <!-- 宠物名称 - 更紧凑 -->
+              <div class="text-sm font-bold mt-1 text-gray-700 group-hover:text-orange-500 transition-colors leading-tight">{{ pet.name }}</div>
             </button>
           </div>
 
