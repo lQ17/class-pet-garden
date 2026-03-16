@@ -80,6 +80,9 @@ const levelUpInfo = ref({ name: '', level: 0 })
 const isLoaded = ref(false)
 const isLoading = ref(true)
 
+// 图片加载状态
+const imageLoaded = ref<Record<string, boolean>>({})
+
 // 详情面板
 const showDetailPanel = ref(false)
 const detailStudent = ref<Student | null>(null)
@@ -690,15 +693,6 @@ function getStudentPetImage(student: Student): string {
   return getPetLevelImage(student.pet_type, student.pet_level)
 }
 
-// 隐藏图片加载动画
-function hideLoading(event: Event) {
-  const target = event.target as HTMLImageElement
-  const loadingEl = target.previousElementSibling as HTMLElement
-  if (loadingEl) {
-    loadingEl.style.display = 'none'
-  }
-}
-
 // Initialize
 onMounted(async () => {
   isLoading.value = true
@@ -1264,28 +1258,35 @@ onMounted(async () => {
               v-for="pet in PET_TYPES" 
               :key="pet.id"
               @click="selectPet(pet.id)"
-              class="relative bg-white rounded-xl p-2 hover:shadow-lg hover:scale-105 transition-all text-center group border border-gray-100 hover:border-orange-200"
+              class="relative bg-gradient-to-br from-white to-gray-50 rounded-2xl p-3 hover:shadow-xl hover:scale-105 transition-all text-center group border-2 border-transparent hover:border-orange-300 hover:from-orange-50 hover:to-pink-50 overflow-hidden"
             >
-              <!-- 图片容器 - 更大的图片，更少的留白 -->
-              <div class="relative w-full aspect-square mx-auto">
-                <!-- 加载动画 -->
-                <div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-orange-50 to-pink-50 rounded-lg">
-                  <div class="flex gap-1">
-                    <span class="w-1.5 h-1.5 bg-orange-400 rounded-full animate-bounce" style="animation-delay: 0ms"></span>
-                    <span class="w-1.5 h-1.5 bg-pink-400 rounded-full animate-bounce" style="animation-delay: 150ms"></span>
-                    <span class="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style="animation-delay: 300ms"></span>
+              <!-- 装饰性边框 -->
+              <div class="absolute inset-0 rounded-2xl border-2 border-dashed border-gray-200 group-hover:border-orange-200 transition-colors"></div>
+              
+              <!-- 图片容器 -->
+              <div class="relative w-full aspect-square mx-auto mb-2">
+                <!-- 加载动画 - 图片加载完成前显示 -->
+                <div 
+                  v-if="!imageLoaded[pet.id]" 
+                  class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-orange-100/80 to-pink-100/80 rounded-xl"
+                >
+                  <div class="flex gap-1.5">
+                    <span class="w-2 h-2 bg-orange-400 rounded-full animate-bounce" style="animation-delay: 0ms"></span>
+                    <span class="w-2 h-2 bg-pink-400 rounded-full animate-bounce" style="animation-delay: 150ms"></span>
+                    <span class="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style="animation-delay: 300ms"></span>
                   </div>
                 </div>
-                <!-- 宠物图片 -->
+                <!-- 宠物图片 - 加载完成后淡入显示 -->
                 <img 
                   :src="getPetLevel1Image(pet.id)" 
-                  class="absolute inset-0 w-full h-full object-contain group-hover:scale-110 transition-transform duration-300 rounded-lg p-1"
-                  @load="hideLoading($event)"
+                  class="w-full h-full object-contain group-hover:scale-110 transition-all duration-300 rounded-xl p-1"
+                  :class="imageLoaded[pet.id] ? 'opacity-100' : 'opacity-0'"
+                  @load="imageLoaded[pet.id] = true"
                 />
               </div>
               
-              <!-- 宠物名称 - 更紧凑 -->
-              <div class="text-sm font-bold mt-1 text-gray-700 group-hover:text-orange-500 transition-colors leading-tight">{{ pet.name }}</div>
+              <!-- 宠物名称 - 放大 -->
+              <div class="text-base font-bold mt-2 text-gray-800 group-hover:text-orange-600 transition-colors leading-tight">{{ pet.name }}</div>
             </button>
           </div>
 
