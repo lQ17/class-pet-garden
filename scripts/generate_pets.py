@@ -1,13 +1,6 @@
 #!/usr/bin/env python3
 """
-宠物图片批量生成工具 - 使用 SiliconFlow FLUX.1-schnell 模型
-
-用法:
-    python generate_pets.py --preview --pet cat --level 3    # 预览Prompt
-    python generate_pets.py --pet cat --level 3              # 生成单张
-    python generate_pets.py --pet cat                       # 生成某宠物所有等级
-    python generate_pets.py --all                           # 生成所有
-
+宠物图片批量生成工具 - 使用装饰变化区分等级
 """
 
 import argparse
@@ -21,134 +14,60 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 
-# ============ 配置 ============
-
 MODELS = {
     "flux": "black-forest-labs/FLUX.1-schnell",
     "flux-dev": "black-forest-labs/FLUX.1-dev", 
     "flux-pro": "black-forest-labs/FLUX.1-pro",
 }
 
-DEFAULT_MODEL = "flux"
-DEFAULT_SIZE = "512x512"
 OUTPUT_DIR = Path("/root/.openclaw/workspace/projects/class-pet-garden/public/pets")
-
-# ============ 宠物定义（测试用：cat, dog） ============
 
 PETS = {
     "cat": {
         "name": "小猫",
-        "base_prompt": "cute fluffy cat with big round eyes, pink nose, soft fur",
-        "color": "orange and white",
-        "features": "fluffy tail, whiskers"
-    },
-    "dog": {
-        "name": "小狗",
-        "base_prompt": "cute friendly dog with floppy ears, wagging tail",
-        "color": "golden brown",
-        "features": "floppy ears, shiny eyes"
+        "base": "cute fluffy cat with big round eyes, pink nose, soft orange and white fur, fluffy tail",
     }
 }
 
-# ============ 优化后的等级定义 - 强调形态变化 ============
-
-LEVELS = {
-    1: {
-        "body": "tiny body, smallest size, chibi proportions 1:1 head-to-body ratio",
-        "features": "round baby face, oversized head, tiny limbs, fluffy baby fur",
-        "expression": "innocent curious eyes, small smile",
-        "background": "peaceful meadow with small flowers, morning sunlight",
-        "effects": "soft pastel colors"
-    },
-    2: {
-        "body": "small body, slightly bigger, chibi proportions 1:1.5 head-to-body ratio",
-        "features": "playful stance, developing muscles, energetic posture",
-        "expression": "excited happy eyes, open mouth smile",
-        "background": "colorful garden with butterflies, bright sunny day",
-        "effects": "vibrant colors"
-    },
-    3: {
-        "body": "medium body, adolescent build, proportions 1:2 head-to-body ratio",
-        "features": "lean athletic build, confident stance, longer limbs",
-        "expression": "confident determined eyes, smirk",
-        "background": "enchanted forest with glowing mushrooms",
-        "effects": "subtle magical aura, soft glow"
-    },
-    4: {
-        "body": "medium-large body, young adult build, proportions 1:2.5 head-to-body ratio",
-        "features": "strong muscular build, defined features, powerful stance",
-        "expression": "focused intense eyes, determined expression",
-        "background": "ancient forest with waterfall, magical atmosphere",
-        "effects": "growing power aura, light particles"
-    },
-    5: {
-        "body": "large body, fully developed, proportions 1:3 head-to-body ratio",
-        "features": "muscular majestic build, impressive presence, full size",
-        "expression": "wise commanding eyes, noble expression",
-        "background": "mountain peak above clouds, rainbow",
-        "effects": "power aura, glowing particles, energy effects"
-    },
-    6: {
-        "body": "very large body, heroic build, proportions 1:3.5 head-to-body ratio",
-        "features": "heavily muscular, heroic stance, shining coat",
-        "expression": "heroic fierce eyes, commanding presence",
-        "background": "floating islands in sky, golden sunset clouds",
-        "effects": "golden halo, strong aura, floating particles"
-    },
-    7: {
-        "body": "huge body, legendary build, proportions 1:4 head-to-body ratio",
-        "features": "massive powerful build, regal posture, radiant appearance",
-        "expression": "kingly majestic eyes, awe-inspiring presence",
-        "background": "celestial temple in clouds, aurora borealis",
-        "effects": "intense golden glow, crown-like halo, energy waves"
-    },
-    8: {
-        "body": "massive body, divine proportions, 1:4.5 head-to-body ratio, largest size",
-        "features": "god-like majestic build, ultimate form, divine radiance, floating above ground",
-        "expression": "divine all-knowing eyes, transcendent presence, benevolent smile",
-        "background": "cosmic realm with stars and nebula, heavenly gates",
-        "effects": "radiant golden light beams, divine halo, floating sacred symbols, ethereal glow"
-    }
+# 装饰变化定义 - 用装饰替代体型变化
+DECORATIONS = {
+    1: {"item": "tiny pink ribbon", "effect": "soft pastel colors", "bg": "peaceful meadow with small flowers"},
+    2: {"item": "small bell collar", "effect": "gentle glow", "bg": "colorful garden with butterflies"},
+    3: {"item": "shiny star collar", "effect": "subtle magical aura", "bg": "enchanted forest with glowing mushrooms"},
+    4: {"item": "golden necklace with small gem", "effect": "soft golden aura", "bg": "ancient forest with waterfall"},
+    5: {"item": "crown with small jewels", "effect": "glowing particles around", "bg": "mountain peak above clouds"},
+    6: {"item": "golden crown with wings", "effect": "golden halo and floating particles", "bg": "floating islands in golden clouds"},
+    7: {"item": "regal crown with large wings", "effect": "intense golden glow, majestic aura", "bg": "celestial temple in clouds with aurora"},
+    8: {"item": "divine crown with angel wings, floating above ground", "effect": "radiant golden light beams, divine halo, sacred symbols floating", "bg": "cosmic realm with stars and nebula, heavenly gates"},
 }
 
-STYLE = "flat cartoon style, kawaii, cute and friendly, big round eyes with highlights, soft rounded shapes, smooth outlines, no sharp edges, vibrant colors, high quality, detailed, masterpiece"
-NEGATIVE = "ugly, deformed, noisy, blurry, distorted, bad anatomy, extra limbs, poorly drawn face, poorly drawn hands, realistic, scary, dark, violent, text, watermark"
+STYLE = "flat cartoon style, kawaii, chibi proportions, cute and friendly, big round eyes with highlights, soft rounded shapes, smooth outlines, vibrant colors, masterpiece, standing pose, front view, happy expression"
+NEGATIVE = "ugly, deformed, noisy, blurry, realistic, scary, dark, text, watermark, bad anatomy"
 
 def build_prompt(pet_id: str, level: int) -> str:
-    """构建生成Prompt - 强调形态变化"""
     pet = PETS[pet_id]
-    lvl = LEVELS[level]
+    dec = DECORATIONS[level]
     
-    prompt = f"""A {pet['base_prompt']}, 
-{lvl['body']},
-{lvl['features']}, {pet['color']},
-{lvl['expression']},
-{STYLE},
-standing pose, front view,
-{lvl['background']},
-{lvl['effects']},
-8k, highly detailed"""
-    
-    return prompt
+    return f"{pet['base']}, wearing {dec['item']}, {dec['effect']}, {STYLE}, {dec['bg']}, 8k, highly detailed"
 
 def get_api_key():
     with open("/root/.openclaw/openclaw.json") as f:
         config = json.load(f)
         return config.get('models', {}).get('providers', {}).get('siliconflow', {}).get('apiKey', '')
 
-def generate(prompt: str):
+def generate(prompt: str, model: str = "flux-dev"):
     api_key = get_api_key()
     url = "https://api.siliconflow.cn/v1/images/generations"
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     payload = {
-        "model": MODELS["flux"],
+        "model": MODELS[model],
         "prompt": prompt,
         "negative_prompt": NEGATIVE,
         "image_size": "512x512",
         "num_images": 1,
         "seed": int(time.time()) % 1000000
     }
-    resp = requests.post(url, headers=headers, json=payload, timeout=60)
+    resp = requests.post(url, headers=headers, json=payload, timeout=120)
     return resp.json()
 
 def download(url: str, path: Path):
@@ -161,30 +80,35 @@ def download(url: str, path: Path):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--preview", action="store_true", help="预览Prompt")
-    parser.add_argument("--pet", choices=["cat", "dog"], help="宠物")
-    parser.add_argument("--level", type=int, choices=range(1,9), help="等级")
+    parser.add_argument("--pet", default="cat", help="宠物")
+    parser.add_argument("--level", type=int, help="等级")
+    parser.add_argument("--all", action="store_true", help="生成所有等级")
     args = parser.parse_args()
     
-    if args.preview and args.pet and args.level:
-        prompt = build_prompt(args.pet, args.level)
-        print(f"\n📝 Prompt for {args.pet} Lv.{args.level}:\n")
-        print(prompt)
-        print()
-        return
-    
-    if args.pet and args.level:
+    if args.all:
+        print(f"🎨 生成 {args.pet} 所有等级 (1-8)...\n")
+        for lvl in range(1, 9):
+            prompt = build_prompt(args.pet, lvl)
+            print(f"  Lv.{lvl}: {prompt[:60]}...")
+            result = generate(prompt, "flux-dev")
+            if 'images' in result:
+                url = result['images'][0]['url']
+                path = OUTPUT_DIR / args.pet / f"lv{lvl}.png"
+                download(url, path)
+                print(f"  ✅ 已保存: lv{lvl}.png")
+            else:
+                print(f"  ❌ 失败: {result.get('error', 'unknown')}")
+            time.sleep(1)
+        print(f"\n✅ 全部完成！")
+    elif args.pet and args.level:
         prompt = build_prompt(args.pet, args.level)
         print(f"🎨 生成 {args.pet} Lv.{args.level}...")
-        print(f"Prompt: {prompt[:100]}...")
-        result = generate(prompt)
+        result = generate(prompt, "flux-dev")
         if 'images' in result:
             url = result['images'][0]['url']
             path = OUTPUT_DIR / args.pet / f"lv{args.level}.png"
             download(url, path)
             print(f"✅ 已保存: {path}")
-        else:
-            print(f"❌ 失败: {result}")
 
 if __name__ == "__main__":
     main()
