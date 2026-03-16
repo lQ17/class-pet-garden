@@ -44,10 +44,10 @@ export const PET_TYPES: PetType[] = [
   // 神兽
   { id: 'white-tiger', name: '白虎', category: 'mythical', image: '/pet-garden/images/pets/mythical/white-tiger.png', levelImages: generateLevelImages('white-tiger') },
   { id: 'unicorn', name: '独角兽', category: 'mythical', image: '/pet-garden/images/pets/mythical/unicorn.png', levelImages: generateLevelImages('unicorn') },
-  { id: 'pixiu', name: '貔貅', category: 'mythical', image: '/pet-garden/images/pets/mythical/pixiu.png', levelImages: generateLevelImages('pixiu') },
+  { id: 'pixiu', name: '貔貅(píxiū)', category: 'mythical', image: '/pet-garden/images/pets/mythical/pixiu.png', levelImages: generateLevelImages('pixiu') },
   { id: 'azure-dragon', name: '青龙', category: 'mythical', image: '/pet-garden/images/pets/mythical/azure-dragon.png', levelImages: generateLevelImages('azure-dragon') },
   { id: 'vermilion-bird', name: '朱雀', category: 'mythical', image: '/pet-garden/images/pets/mythical/vermilion-bird.png', levelImages: generateLevelImages('vermilion-bird') },
-  { id: 'suanni', name: '狻猊', category: 'mythical', image: '/pet-garden/images/pets/mythical/suanni.png', levelImages: generateLevelImages('suanni') },
+  { id: 'suanni', name: '狻猊(suānní)', category: 'mythical', image: '/pet-garden/images/pets/mythical/suanni.png', levelImages: generateLevelImages('suanni') },
   { id: 'succulent-spirit', name: '多肉精灵', category: 'mythical', image: '/pet-garden/images/pets/mythical/succulent-spirit.png', levelImages: generateLevelImages('succulent-spirit') },
 ]
 
