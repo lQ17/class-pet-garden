@@ -1,20 +1,18 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import axios from 'axios'
+import { useAuth } from '@/composables/useAuth'
 
 interface Props {
   show: boolean
 }
 
-const props = defineProps<Props>()
+defineProps<Props>()
 const emit = defineEmits<{
   close: []
   login: [user: { id: string; username: string; isGuest: boolean }]
 }>()
 
-const api = axios.create({
-  baseURL: 'http://localhost:3002'
-})
+const { api, setUser } = useAuth()
 
 const mode = ref<'login' | 'register'>('login')
 const username = ref('')
@@ -62,9 +60,8 @@ async function handleSubmit() {
     })
     
     if (res.data.success) {
-      // 保存 token
-      localStorage.setItem('token', res.data.token)
-      localStorage.setItem('user', JSON.stringify(res.data.user))
+      // 保存用户信息
+      setUser(res.data.user, res.data.token)
       
       emit('login', res.data.user)
       emit('close')
