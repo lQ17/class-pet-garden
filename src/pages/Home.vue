@@ -3,7 +3,6 @@ import { ref, onMounted, computed, nextTick } from 'vue'
 import axios from 'axios'
 import { PET_TYPES, getPetType, getLevelProgress, calculateLevel, getPetLevelImage, getPetLevel1Image } from '@/data/pets'
 import PetImage from '@/components/PetImage.vue'
-import PetLoading from '@/components/PetLoading.vue'
 
 // 配置 axios baseURL
 const api = axios.create({
@@ -768,18 +767,14 @@ onMounted(async () => {
               <div class="absolute inset-0 rounded-full bg-gradient-to-r from-orange-300 via-pink-300 to-purple-300 opacity-50 animate-spin" style="animation-duration: 3s"></div>
               <div class="absolute inset-2 rounded-full bg-gradient-to-r from-yellow-300 via-orange-300 to-pink-300 opacity-40 animate-spin" style="animation-duration: 2s; animation-direction: reverse"></div>
               
-              <!-- 加载动画 - 使用 PetLoading 组件 -->
-              <div v-if="!levelUpImagesLoaded.prev || !levelUpImagesLoaded.current" class="absolute inset-0 flex items-center justify-center">
-                <PetLoading size="lg" text="" :show-paw-trail="true" />
-              </div>
-              
               <!-- 宠物图片容器 -->
-              <div v-else class="absolute inset-4 rounded-full overflow-hidden bg-gradient-to-br from-orange-100 to-pink-100 shadow-inner">
+              <div class="absolute inset-4 rounded-full overflow-hidden bg-gradient-to-br from-orange-100 to-pink-100 shadow-inner">
                 <!-- 升级前图片 - 淡出 -->
                 <img 
                   :src="getPetLevelImage(levelUpInfo.petType, levelUpInfo.prevLevel)" 
                   class="absolute inset-0 w-full h-full object-contain p-2 transition-all duration-1000"
                   :class="levelUpImagesLoaded.prev ? 'opacity-0 scale-50' : 'opacity-100 scale-100'"
+                  @load="levelUpImagesLoaded.prev = true"
                 />
                 <!-- 升级后图片 - 淡入 -->
                 <img 
@@ -787,12 +782,6 @@ onMounted(async () => {
                   class="absolute inset-0 w-full h-full object-contain p-2 transition-all duration-1000"
                   :class="levelUpImagesLoaded.current ? 'opacity-100 scale-100' : 'opacity-0 scale-150'"
                   @load="levelUpImagesLoaded.current = true"
-                />
-                <!-- 预加载前一张图片 -->
-                <img 
-                  :src="getPetLevelImage(levelUpInfo.petType, levelUpInfo.prevLevel)" 
-                  class="hidden"
-                  @load="levelUpImagesLoaded.prev = true"
                 />
               </div>
               
