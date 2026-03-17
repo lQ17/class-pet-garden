@@ -780,6 +780,8 @@ async function deleteRule(id: string) {
   })
 }
 
+// TODO: 导入导出功能暂时屏蔽，等待重构后恢复
+/*
 async function exportBackup() {
   try {
     const res = await api.get('/backup', { responseType: 'blob' })
@@ -825,6 +827,7 @@ async function importBackup(event: Event) {
     }
   })
 }
+*/
 
 function getStudentPetImage(student: Student): string {
   if (!student.pet_type) return ''
@@ -1016,12 +1019,14 @@ onMounted(async () => {
               <button @click="openCreateClassModal" class="w-full text-left px-3 py-2 text-sm hover:bg-gradient-to-r hover:from-orange-50 hover:to-pink-50 transition-colors">➕ 新建</button>
               <button v-if="currentClass" @click="openEditClassModal" class="w-full text-left px-3 py-2 text-sm hover:bg-gradient-to-r hover:from-orange-50 hover:to-pink-50 transition-colors">✏️ 重命名</button>
               <button v-if="currentClass" @click="deleteClass(currentClass.id)" class="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors">🗑️ 删除</button>
+              <!-- TODO: 导入导出功能暂时屏蔽，等待重构后恢复
               <hr class="my-1.5 border-gray-100">
               <button @click="exportBackup" class="w-full text-left px-3 py-2 text-sm hover:bg-gradient-to-r hover:from-orange-50 hover:to-pink-50 transition-colors">💾 导出</button>
               <label class="w-full text-left px-3 py-2 text-sm hover:bg-gradient-to-r hover:from-orange-50 hover:to-pink-50 transition-colors cursor-pointer block">
                 📥 导入
                 <input type="file" accept=".json" @change="importBackup" class="hidden" />
               </label>
+              -->
             </div>
           </Transition>
         </div>
