@@ -853,6 +853,11 @@ onMounted(async () => {
       
       <!-- Right -->
       <div class="flex items-center gap-2">
+        <!-- Pet Preview -->
+        <router-link to="/preview" class="px-4 py-2 rounded-xl text-sm bg-white/95 hover:bg-white shadow-md transition-all font-medium flex items-center gap-1">
+          🐾 宠物图鉴
+        </router-link>
+        
         <!-- Search -->
         <input 
           v-model="searchQuery"
