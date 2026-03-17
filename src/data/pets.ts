@@ -97,9 +97,9 @@ export function calculateLevel(exp: number): number {
 }
 
 // 获取当前等级进度
-export function getLevelProgress(exp: number): { current: number; required: number; percentage: number } {
+export function getLevelProgress(exp: number): { current: number; required: number; percentage: number; isMaxLevel: boolean } {
   if (!exp || exp <= 0) {
-    return { current: 0, required: LEVEL_CONFIG[0], percentage: 0 }
+    return { current: 0, required: LEVEL_CONFIG[0], percentage: 0, isMaxLevel: false }
   }
   
   let total = 0
@@ -110,12 +110,19 @@ export function getLevelProgress(exp: number): { current: number; required: numb
       return { 
         current, 
         required: LEVEL_CONFIG[i], 
-        percentage: Math.round((current / LEVEL_CONFIG[i]) * 100) 
+        percentage: Math.round((current / LEVEL_CONFIG[i]) * 100),
+        isMaxLevel: false
       }
     }
     total = levelTotal
   }
   
-  // Max level reached
-  return { current: LEVEL_CONFIG[LEVEL_CONFIG.length - 1], required: LEVEL_CONFIG[LEVEL_CONFIG.length - 1], percentage: 100 }
+  // Max level reached - 显示总积分/满级所需总积分
+  const maxExp = LEVEL_CONFIG.reduce((sum, req) => sum + req, 0)
+  return { 
+    current: exp, 
+    required: maxExp, 
+    percentage: 100,
+    isMaxLevel: true
+  }
 }

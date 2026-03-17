@@ -1122,9 +1122,15 @@ onMounted(async () => {
               <div class="flex items-center justify-between text-sm mb-3">
                 <span class="text-gray-500 flex items-center gap-1">
                   <span class="text-purple-400">💜</span>
-                  <span class="font-medium text-purple-600">{{ getLevelProgress(student.pet_exp).current }}</span>
-                  <span class="text-gray-300">/</span>
-                  <span>{{ getLevelProgress(student.pet_exp).required }}</span>
+                  <template v-if="getLevelProgress(student.pet_exp).isMaxLevel">
+                    <span class="font-medium text-purple-600">{{ getLevelProgress(student.pet_exp).current }}</span>
+                    <span class="text-xs text-gray-400">(已满级)</span>
+                  </template>
+                  <template v-else>
+                    <span class="font-medium text-purple-600">{{ getLevelProgress(student.pet_exp).current }}</span>
+                    <span class="text-gray-300">/</span>
+                    <span>{{ getLevelProgress(student.pet_exp).required }}</span>
+                  </template>
                 </span>
                 <span class="font-bold text-lg flex items-center gap-1">
                   <span class="text-yellow-400">⭐</span>
@@ -1682,7 +1688,12 @@ onMounted(async () => {
             <div class="mt-4">
               <div class="flex justify-between text-white/90 text-sm mb-1">
                 <span>成长值</span>
-                <span>{{ getLevelProgress(detailStudent.pet_exp).current }}/{{ getLevelProgress(detailStudent.pet_exp).required }}</span>
+                <span v-if="getLevelProgress(detailStudent.pet_exp).isMaxLevel">
+                  {{ getLevelProgress(detailStudent.pet_exp).current }} (已满级)
+                </span>
+                <span v-else>
+                  {{ getLevelProgress(detailStudent.pet_exp).current }}/{{ getLevelProgress(detailStudent.pet_exp).required }}
+                </span>
               </div>
               <div class="bg-white/20 rounded-full h-3 overflow-hidden">
                 <div 
