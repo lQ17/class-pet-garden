@@ -105,6 +105,7 @@ const randomEmoji = computed(() => loadingEmojis[Math.floor(Math.random() * load
     <img
       :src="src"
       :alt="alt"
+      loading="lazy"
       class="w-full h-full object-contain p-1 transition-all duration-300"
       :class="[
         isLoaded ? 'opacity-100' : 'opacity-0',
