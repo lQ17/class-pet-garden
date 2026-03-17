@@ -36,7 +36,7 @@ const icons = {
 <template>
   <Transition name="modal">
     <div v-if="show" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" @click.self="emit('cancel')">
-      <div class="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl animate-scale-in">
+      <div class="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl">
         <div class="flex items-center gap-3 mb-4">
           <span class="text-3xl">{{ icons[type] }}</span>
           <h3 class="text-xl font-bold text-gray-800">{{ title }}</h3>
@@ -67,7 +67,12 @@ const icons = {
 <style scoped>
 .modal-enter-active,
 .modal-leave-active {
-  transition: all 0.3s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.modal-enter-active > div,
+.modal-leave-active > div {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .modal-enter-from,
@@ -77,21 +82,13 @@ const icons = {
 
 .modal-enter-from > div,
 .modal-leave-to > div {
-  transform: scale(0.9);
+  opacity: 0;
+  transform: scale(0.95);
 }
 
-.animate-scale-in {
-  animation: scaleIn 0.3s ease;
-}
-
-@keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+.modal-enter-to > div,
+.modal-leave-from > div {
+  opacity: 1;
+  transform: scale(1);
 }
 </style>
