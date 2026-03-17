@@ -1108,15 +1108,6 @@ onMounted(async () => {
     
     <!-- Main Content -->
     <main class="flex-1 overflow-auto p-6">
-          <button @click="cancelBatchMode" class="px-3 py-1.5 rounded-lg text-sm bg-gray-500 text-white hover:bg-gray-600 shadow-md transition-all font-medium">
-            取消
-          </button>
-        </template>
-      </div>
-    </header>
-
-    <!-- Main Content -->
-    <main class="flex-1 overflow-auto p-6">
       <Transition name="fade" mode="out-in">
         <!-- 无班级状态 -->
         <div v-if="classes.length === 0" key="no-class" class="flex flex-col items-center justify-center min-h-[60vh]">
