@@ -33,7 +33,7 @@ if (!user.value) {
 // 创建带认证的 axios 实例
 export function useAuth() {
   const api = axios.create({
-    baseURL: '/pet-garden'
+    baseURL: '/pet-garden/api'
   })
   
   // 添加请求拦截器

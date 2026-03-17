@@ -53,7 +53,7 @@ async function handleSubmit() {
   loading.value = true
   
   try {
-    const endpoint = mode.value === 'login' ? '/api/auth/login' : '/api/auth/register'
+    const endpoint = mode.value === 'login' ? '/auth/login' : '/auth/register'
     const res = await api.post(endpoint, {
       username: username.value.trim(),
       password: password.value
