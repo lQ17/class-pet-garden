@@ -29,7 +29,7 @@ interface Student {
 const toast = useToast()
 
 // 用户认证
-const { user, isLoggedIn, isGuest, username, logout, api } = useAuth()
+const { isGuest, username, logout, api } = useAuth()
 const showAuthModal = ref(false)
 
 // 用户菜单
@@ -530,14 +530,6 @@ async function batchDeleteStudents() {
       await loadStudents()
     }
   })
-}
-
-function selectAllStudents() {
-  if (selectedStudents.value.size === filteredStudents.value.length) {
-    selectedStudents.value = new Set()
-  } else {
-    selectedStudents.value = new Set(filteredStudents.value.map(s => s.id))
-  }
 }
 
 async function batchAddPoints() {
@@ -1090,7 +1082,7 @@ onMounted(async () => {
                 </button>
               </template>
               <template v-else>
-                <button @click="logout(); showUserMenu = false; toast.success('已退出登录')" class="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors">
+                <button @click="logout(); showUserMenu = false; loadClasses(); toast.success('已退出登录')" class="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors">
                   🚪 退出登录
                 </button>
               </template>
@@ -1910,7 +1902,7 @@ onMounted(async () => {
     <AuthModal
       :show="showAuthModal"
       @close="showAuthModal = false"
-      @login="(user) => { toast.success(`欢迎，${user.username}！`) }"
+      @login="(user) => { toast.success(`欢迎，${user.username}！`); loadClasses() }"
     />
   </div>
 </template>

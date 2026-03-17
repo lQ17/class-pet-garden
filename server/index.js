@@ -639,6 +639,11 @@ function generateToken(userId) {
 
 // 验证 Token
 function verifyToken(token) {
+  // 处理游客 token
+  if (token === 'guest') {
+    const guest = db.prepare('SELECT id FROM users WHERE username = ?').get('guest')
+    return guest ? guest.id : null
+  }
   try {
     const payload = JSON.parse(Buffer.from(token, 'base64').toString())
     if (payload.exp < Date.now()) return null
