@@ -1171,15 +1171,16 @@ onMounted(async () => {
             >
               <!-- 有宠物时使用 PetImage 组件 -->
               <template v-if="student.pet_type">
-                <PetImage
-                  :src="getStudentPetImage(student)"
-                  :alt="getPetType(student.pet_type)?.name"
-                  size="full"
-                  :rounded="false"
-                  rounded-class="rounded-t-2xl -m-[1px]"
-                  :show-loading="true"
-                  class="w-full h-full"
-                />
+                <div class="w-full h-full rounded-t-2xl overflow-hidden">
+                  <PetImage
+                    :src="getStudentPetImage(student)"
+                    :alt="getPetType(student.pet_type)?.name"
+                    size="full"
+                    :rounded="false"
+                    :show-loading="true"
+                    class="w-full h-full"
+                  />
+                </div>
               </template>
               <!-- 未领养宠物 -->
               <div v-else class="flex flex-col items-center">
