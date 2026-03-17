@@ -8,6 +8,7 @@ interface Props {
   rounded?: boolean
   hoverScale?: boolean
   showLoading?: boolean
+  fixedEmojiSize?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -15,7 +16,8 @@ const props = withDefaults(defineProps<Props>(), {
   size: 'md',
   rounded: true,
   hoverScale: true,
-  showLoading: true
+  showLoading: true,
+  fixedEmojiSize: false
 })
 
 const isLoaded = ref(false)
@@ -34,6 +36,10 @@ const sizeClasses = computed(() => {
 
 // 根据尺寸调整表情大小
 const emojiSizeClass = computed(() => {
+  // 如果固定表情大小，使用固定的小尺寸
+  if (props.fixedEmojiSize) {
+    return 'text-xl'
+  }
   const sizes: Record<string, string> = {
     sm: 'text-sm',
     md: 'text-xl',

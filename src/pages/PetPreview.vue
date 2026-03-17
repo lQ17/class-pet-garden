@@ -117,6 +117,7 @@ function closeDetail() {
               size="full"
               :rounded="false"
               :hover-scale="true"
+              :fixed-emoji-size="true"
             />
           </div>
           <div class="text-center">
@@ -147,6 +148,7 @@ function closeDetail() {
               size="full"
               :rounded="false"
               :hover-scale="true"
+              :fixed-emoji-size="true"
             />
           </div>
           <div class="text-center">
@@ -170,6 +172,7 @@ function closeDetail() {
                   size="md"
                   :rounded="true"
                   :show-loading="false"
+                  :fixed-emoji-size="true"
                 />
               </div>
               <div class="text-white">
@@ -197,6 +200,7 @@ function closeDetail() {
                     size="full"
                     :rounded="false"
                     :show-loading="true"
+                    :fixed-emoji-size="true"
                   />
                   <div class="absolute top-4 right-4 font-bold px-4 py-2 rounded-full shadow-lg text-white text-lg bg-gradient-to-r"
                     :class="getLevelColor(selectedLevel)"
@@ -240,6 +244,7 @@ function closeDetail() {
                   size="full"
                   :rounded="false"
                   :show-loading="false"
+                  :fixed-emoji-size="true"
                   class="relative z-10"
                 />
                 <div class="absolute bottom-1 left-1 right-1 z-20">
