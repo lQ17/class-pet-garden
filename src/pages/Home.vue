@@ -1271,9 +1271,9 @@ onMounted(async () => {
             </button>
           </div>
           
-          <!-- 规则网格 - 固定高度容器，内部可滚动 -->
-          <div class="h-[360px] overflow-y-auto pr-2 custom-scrollbar">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <!-- 规则网格 - 固定5行高度，超出显示滚动条 -->
+          <div class="h-[540px] overflow-y-auto pr-2 custom-scrollbar">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 content-start">
               <button 
                 v-for="rule in currentCategoryRules" 
                 :key="rule.id"
