@@ -1722,7 +1722,7 @@ onMounted(async () => {
                   v-for="rule in rules.filter(r => r.category === detailEvalTab)" 
                   :key="rule.id"
                   @click="detailQuickAdd(rule)"
-                  class="rounded-xl p-2 text-center transition-all border-2 hover:scale-105 active:scale-95 h-[75px]"
+                  class="rounded-xl p-2 text-center transition-all border-2 hover:scale-105 active:scale-95 h-[70px]"
                   :class="rule.points > 0 
                     ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200 hover:border-green-400' 
                     : 'bg-gradient-to-br from-red-50 to-pink-50 border-red-200 hover:border-red-400'"
