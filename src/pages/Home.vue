@@ -3,6 +3,7 @@ import { ref, onMounted, computed, nextTick } from 'vue'
 import axios from 'axios'
 import { PET_TYPES, getPetType, getLevelProgress, calculateLevel, getPetLevelImage, getPetLevel1Image } from '@/data/pets'
 import PetImage from '@/components/PetImage.vue'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { useToast } from '@/composables/useToast'
 
 // 配置 axios baseURL
@@ -80,6 +81,17 @@ const sortBy = ref<'name' | 'studentNo' | 'progress'>('name')
 const sortOrder = ref<'asc' | 'desc'>('asc')
 const showSortMenu = ref(false)
 const showPetMenu = ref(false)
+
+// 确认对话框状态
+const confirmDialog = ref({
+  show: false,
+  title: '确认',
+  message: '',
+  confirmText: '确认',
+  cancelText: '取消',
+  type: 'info' as 'info' | 'warning' | 'danger',
+  onConfirm: () => {}
+})
 
 // 图片加载状态（用于升级动画）
 const levelUpImagesLoaded = ref({ prev: false, current: false })
@@ -383,9 +395,18 @@ async function selectPet(petId: string) {
 // 打开详情面板
 async function openDetailPanel(student: Student) {
   if (!student.pet_type) {
-    if (confirm(`${student.name} 还没有领养宠物，是否现在领养？`)) {
-      selectedStudent.value = student
-      showPetModal.value = true
+    confirmDialog.value = {
+      show: true,
+      title: '领养宠物',
+      message: `${student.name} 还没有领养宠物，是否现在领养？`,
+      confirmText: '去领养',
+      cancelText: '暂不',
+      type: 'info',
+      onConfirm: () => {
+        selectedStudent.value = student
+        showPetModal.value = true
+        confirmDialog.value.show = false
+      }
     }
     return
   }
@@ -1787,6 +1808,18 @@ onMounted(async () => {
         </div>
       </div>
     </Transition>
+    
+    <!-- 确认对话框 -->
+    <ConfirmDialog
+      :show="confirmDialog.show"
+      :title="confirmDialog.title"
+      :message="confirmDialog.message"
+      :confirm-text="confirmDialog.confirmText"
+      :cancel-text="confirmDialog.cancelText"
+      :type="confirmDialog.type"
+      @confirm="confirmDialog.onConfirm"
+      @cancel="confirmDialog.show = false"
+    />
   </div>
 </template>
 
