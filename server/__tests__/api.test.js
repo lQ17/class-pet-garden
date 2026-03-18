@@ -65,6 +65,7 @@ function initTestDb() {
       points INTEGER NOT NULL,
       category TEXT NOT NULL,
       is_custom INTEGER DEFAULT 0,
+      user_id TEXT,
       created_at INTEGER
     );
 
