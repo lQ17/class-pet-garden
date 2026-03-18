@@ -524,7 +524,7 @@ onMounted(async () => {
       @show-records="loadEvaluationRecords(); showRecordsModal = true"
       @show-rules="showRulesModal = true"
       @login="showAuthModal = true"
-      @logout="logout(); loadClasses(); toast.success('已退出登录')"
+      @logout="logout(); loadClasses(); loadRules(); toast.success('已退出登录')"
       @set-sort="(by, order) => { sortBy = by; sortOrder = order }"
     />
 
@@ -596,7 +596,7 @@ onMounted(async () => {
     <RulesModal :show="showRulesModal" :rules="rules" @close="showRulesModal = false" @add-rule="addRule" @delete-rule="deleteRule" />
     <DetailPanel :show="showDetailPanel" :student="detailStudent" :rules="rules" :student-records="studentRecords" @close="closeDetailPanel" @change-pet="showDetailPanel = false; selectedStudent = detailStudent; showPetModal = true" @evaluate="handleDetailEvaluate" />
     <ConfirmDialog :show="confirmDialog.show" :title="confirmDialog.title" :message="confirmDialog.message" :confirm-text="confirmDialog.confirmText" :cancel-text="confirmDialog.cancelText" :type="confirmDialog.type" @confirm="confirmDialog.onConfirm" @cancel="closeConfirm" />
-    <AuthModal :show="showAuthModal" @close="showAuthModal = false" @login="toast.success(`欢迎，${$event.username}！`); loadClasses()" />
+    <AuthModal :show="showAuthModal" @close="showAuthModal = false" @login="toast.success(`欢迎，${$event.username}！`); loadClasses(); loadRules()" />
   </div>
 </template>
 

@@ -7,11 +7,11 @@ const router = Router()
 
 // 获取规则列表（需要认证，用户隔离）
 router.get('/', authMiddleware, (req, res) => {
-  // 返回默认规则(is_custom=0) + 当前用户的自定义规则
+  // 返回默认规则(is_custom=0) + 当前用户的自定义规则，按分类和分值排序
   const rules = db.prepare(`
     SELECT * FROM evaluation_rules
     WHERE is_custom = 0 OR user_id = ?
-    ORDER BY is_custom ASC, category, points DESC
+    ORDER BY category, points DESC, is_custom ASC
   `).all(req.userId)
   res.json({ rules })
 })
