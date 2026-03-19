@@ -9,6 +9,7 @@ defineProps<{
   isDeleteMode?: boolean
   isDeleteSelected?: boolean
   scoreAnimation?: { points: number; show: boolean } | null
+  showReviveAnimation?: boolean
 }>()
 
 defineEmits<{
@@ -44,31 +45,93 @@ function getLevelBorderClass(level: number): string {
 function getStudentPetImage(student: Student): string {
   if (!student.pet_type) return ''
   // 死亡状态显示墓碑
-  if (student.pet_status === 'dead') {
+  if (student.pet_status === 'dead' || student.total_points < DEATH_THRESHOLD) {
     return getDeadPetImage()
   }
   return getPetLevelImage(student.pet_type, student.pet_level)
 }
 
-function isDead(student: Student): boolean {
-  return student.pet_status === 'dead' || student.total_points < DEATH_THRESHOLD
+function getPetStatus(student: Student): 'alive' | 'injured' | 'dead' {
+  if (student.total_points < DEATH_THRESHOLD) return 'dead'
+  if (student.total_points < 0) return 'injured'
+  return 'alive'
+}
+
+function getStatusInfo(student: Student) {
+  const status = getPetStatus(student)
+  if (status === 'dead') {
+    return {
+      emoji: '💀',
+      text: '已死亡',
+      bgClass: 'bg-gray-600',
+      cardClass: 'opacity-75 grayscale-[30%]',
+      progressColor: 'from-gray-400 to-gray-500',
+      statusText: `积满 ${-student.total_points} 分复活`
+    }
+  }
+  if (status === 'injured') {
+    return {
+      emoji: '🩹',
+      text: '受伤中',
+      bgClass: 'bg-orange-500',
+      cardClass: 'opacity-90',
+      progressColor: 'from-orange-400 to-red-400',
+      statusText: `还差 ${-student.total_points} 分恢复`
+    }
+  }
+  return {
+    emoji: null,
+    text: null,
+    bgClass: null,
+    cardClass: '',
+    progressColor: null,
+    statusText: null
+  }
+}
+
+// 计算复活/恢复进度
+function getHealthProgress(student: Student): number {
+  const status = getPetStatus(student)
+  if (status === 'dead') {
+    // 从死亡阈值到0的进度
+    const progress = (student.total_points - DEATH_THRESHOLD) / (-DEATH_THRESHOLD) * 100
+    return Math.min(100, Math.max(0, progress))
+  }
+  if (status === 'injured') {
+    // 从0到恢复的进度（负分->0）
+    return Math.min(100, Math.max(0, (1 - (-student.total_points / Math.abs(DEATH_THRESHOLD))) * 100))
+  }
+  return 100
 }
 </script>
 
 <template>
   <div
     class="bg-white rounded-2xl shadow-card overflow-hidden hover:shadow-card-hover transition-all duration-300 cursor-pointer relative group card-hover"
-    :class="[getLevelBorderClass(getDisplayLevel(student)), {
+    :class="[getLevelBorderClass(getDisplayLevel(student)), getStatusInfo(student).cardClass, {
       'ring-2 ring-purple-400 ring-offset-2': isSelected,
-      'ring-2 ring-red-400 ring-offset-2': isDeleteMode && isDeleteSelected,
-      'opacity-75 grayscale-[30%]': isDead(student)
+      'ring-2 ring-red-400 ring-offset-2': isDeleteMode && isDeleteSelected
     }]"
     @click="$emit('click')"
   >
-    <!-- 死亡标记 -->
+    <!-- 复活动画 -->
+    <Transition name="revive">
+      <div
+        v-if="showReviveAnimation"
+        class="absolute inset-0 z-30 flex items-center justify-center bg-white/90"
+      >
+        <div class="text-center animate-bounce-in">
+          <div class="text-6xl mb-2">✨</div>
+          <div class="text-xl font-bold text-green-500">复活了！</div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- 死亡/受伤遮罩 -->
     <div
-      v-if="isDead(student)"
-      class="absolute inset-0 bg-black/10 z-10 pointer-events-none"
+      v-if="getPetStatus(student) !== 'alive'"
+      class="absolute inset-0 z-10 pointer-events-none"
+      :class="getPetStatus(student) === 'dead' ? 'bg-black/10' : 'bg-orange-500/5'"
     ></div>
 
     <!-- 评分动效 -->
@@ -107,7 +170,9 @@ function isDead(student: Student): boolean {
     <!-- 宠物图片区域 -->
     <div class="aspect-square flex items-center justify-center relative rounded-t-2xl"
       :class="student.pet_type 
-        ? (isDead(student) ? 'bg-gradient-to-br from-gray-200 via-slate-100 to-gray-200' : 'bg-gradient-to-br from-orange-100 via-amber-50 to-yellow-100') 
+        ? (getPetStatus(student) === 'dead' ? 'bg-gradient-to-br from-gray-200 via-slate-100 to-gray-200' : 
+           getPetStatus(student) === 'injured' ? 'bg-gradient-to-br from-orange-100 via-red-50 to-orange-50' :
+           'bg-gradient-to-br from-orange-100 via-amber-50 to-yellow-100') 
         : 'bg-gradient-to-br from-gray-100 via-slate-50 to-gray-100'"
     >
       <!-- 有宠物时使用 PetImage 组件 -->
@@ -115,12 +180,19 @@ function isDead(student: Student): boolean {
         <div class="w-full h-full overflow-hidden" style="border-radius: 14px 14px 0 0; margin: -1px -1px 0 -1px; width: calc(100% + 2px);">
           <PetImage
             :src="getStudentPetImage(student)"
-            :alt="isDead(student) ? '已死亡' : getPetType(student.pet_type)?.name"
+            :alt="getPetStatus(student) === 'dead' ? '已死亡' : getPetType(student.pet_type)?.name"
             size="full"
             :rounded="false"
             :show-loading="true"
             class="w-full h-full"
           />
+        </div>
+        <!-- 受伤标记 -->
+        <div
+          v-if="getPetStatus(student) === 'injured'"
+          class="absolute top-3 left-3 text-2xl animate-pulse"
+        >
+          🩹
         </div>
       </template>
       <!-- 未领养宠物 -->
@@ -129,12 +201,18 @@ function isDead(student: Student): boolean {
         <span class="text-xs text-gray-400 mt-2 group-hover:text-orange-400 transition-colors">点击领养</span>
       </div>
 
-      <!-- 等级徽章 / 死亡标记 -->
+      <!-- 状态徽章 -->
       <div
-        v-if="isDead(student)"
+        v-if="getPetStatus(student) === 'dead'"
         class="absolute bottom-3 right-3 font-bold px-3 py-1 rounded-full shadow-lg bg-gray-600 text-white text-sm"
       >
         💀 已死亡
+      </div>
+      <div
+        v-else-if="getPetStatus(student) === 'injured'"
+        class="absolute bottom-3 right-3 font-bold px-3 py-1 rounded-full shadow-lg bg-orange-500 text-white text-sm animate-pulse"
+      >
+        🩹 受伤中
       </div>
       <div
         v-else
@@ -152,19 +230,29 @@ function isDead(student: Student): boolean {
       <div class="flex items-center justify-between mb-2">
         <span class="font-bold text-lg text-gray-800 group-hover:text-orange-500 transition-colors">{{ student.name }}</span>
         <span class="text-xs px-2 py-1 rounded-full"
-          :class="isDead(student) 
+          :class="getPetStatus(student) === 'dead' 
             ? 'bg-gray-200 text-gray-500' 
+            : getPetStatus(student) === 'injured'
+            ? 'bg-orange-100 text-orange-600'
             : (student.pet_type ? 'bg-gradient-to-r from-orange-100 to-pink-100 text-orange-600' : 'bg-gray-100 text-gray-400')">
-          {{ isDead(student) ? '💀 已死亡' : (student.pet_type ? getPetType(student.pet_type)?.name : '未领养') }}
+          {{ getPetStatus(student) === 'dead' ? '💀 已死亡' : 
+             getPetStatus(student) === 'injured' ? '🩹 受伤中' :
+             (student.pet_type ? getPetType(student.pet_type)?.name : '未领养') }}
         </span>
       </div>
 
       <!-- 成长值 + 积分 -->
       <div class="flex items-center justify-between text-sm mb-3">
         <span class="text-gray-500 flex items-center gap-1">
-          <template v-if="isDead(student)">
-            <span class="text-xs text-gray-400 font-medium">积满 {{ -DEATH_THRESHOLD }} 分复活</span>
+          <!-- 死亡状态 -->
+          <template v-if="getPetStatus(student) === 'dead'">
+            <span class="text-xs text-gray-400 font-medium">距离复活还需 {{ -student.total_points }} 分</span>
           </template>
+          <!-- 受伤状态 -->
+          <template v-else-if="getPetStatus(student) === 'injured'">
+            <span class="text-xs text-orange-500 font-medium">🩹 还差 {{ -student.total_points }} 分恢复</span>
+          </template>
+          <!-- 正常状态 -->
           <template v-else-if="getLevelProgress(student.pet_exp).isMaxLevel">
             <span class="text-xs text-amber-500 font-medium">🏆 已毕业</span>
           </template>
@@ -181,13 +269,25 @@ function isDead(student: Student): boolean {
         </span>
       </div>
 
-      <!-- 进度条（死亡时显示复活进度） -->
+      <!-- 进度条 -->
       <div class="bg-gray-100 rounded-full h-2.5 overflow-hidden progress-glow">
+        <!-- 死亡进度条 -->
         <div
-          v-if="isDead(student)"
-          class="rounded-full h-2.5 transition-all duration-500 bg-gradient-to-r from-gray-400 to-gray-500"
-          :style="{ width: `${Math.min(100, (student.total_points - DEATH_THRESHOLD) / (-DEATH_THRESHOLD) * 100)}%` }"
-        ></div>
+          v-if="getPetStatus(student) === 'dead'"
+          class="rounded-full h-2.5 transition-all duration-500 bg-gradient-to-r from-gray-400 to-gray-500 relative"
+          :style="{ width: `${getHealthProgress(student)}%` }"
+        >
+          <div class="absolute inset-0 bg-white/20 animate-pulse"></div>
+        </div>
+        <!-- 受伤进度条 -->
+        <div
+          v-else-if="getPetStatus(student) === 'injured'"
+          class="rounded-full h-2.5 transition-all duration-500 bg-gradient-to-r from-orange-400 to-red-400 relative"
+          :style="{ width: `${getHealthProgress(student)}%` }"
+        >
+          <div class="absolute inset-0 bg-white/30 animate-pulse"></div>
+        </div>
+        <!-- 正常进度条 -->
         <div
           v-else
           class="rounded-full h-2.5 transition-all duration-500"
@@ -198,3 +298,21 @@ function isDead(student: Student): boolean {
     </div>
   </div>
 </template>
+
+<style scoped>
+.revive-enter-active {
+  animation: reviveIn 0.8s ease-out;
+}
+.revive-leave-active {
+  transition: opacity 0.3s ease;
+}
+.revive-leave-to {
+  opacity: 0;
+}
+
+@keyframes reviveIn {
+  0% { opacity: 0; }
+  50% { opacity: 1; }
+  100% { opacity: 1; }
+}
+</style>

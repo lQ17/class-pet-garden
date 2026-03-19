@@ -11,13 +11,35 @@ const DEATH_THRESHOLD = -20
 
 // 检查宠物状态
 function checkPetStatus(totalPoints, currentStatus) {
-  if (totalPoints < DEATH_THRESHOLD && currentStatus !== 'dead') {
-    return { status: 'dead', died: true, revived: false }
+  // 死亡状态
+  if (totalPoints < DEATH_THRESHOLD) {
+    if (currentStatus !== 'dead') {
+      return { status: 'dead', died: true, revived: false, injured: false, healed: false }
+    }
+    return { status: 'dead', died: false, revived: false, injured: false, healed: false }
   }
-  if (totalPoints >= 0 && currentStatus === 'dead') {
-    return { status: 'alive', died: false, revived: true }
+  // 受伤状态
+  if (totalPoints < 0) {
+    const wasDead = currentStatus === 'dead'
+    const wasAlive = currentStatus === 'alive'
+    if (wasDead) {
+      return { status: 'injured', died: false, revived: true, injured: false, healed: false }
+    }
+    if (wasAlive) {
+      return { status: 'injured', died: false, revived: false, injured: true, healed: false }
+    }
+    return { status: 'injured', died: false, revived: false, injured: false, healed: false }
   }
-  return { status: currentStatus || 'alive', died: false, revived: false }
+  // 正常状态
+  const wasInjured = currentStatus === 'injured'
+  const wasDead = currentStatus === 'dead'
+  if (wasDead) {
+    return { status: 'alive', died: false, revived: true, injured: false, healed: true }
+  }
+  if (wasInjured) {
+    return { status: 'alive', died: false, revived: false, injured: false, healed: true }
+  }
+  return { status: 'alive', died: false, revived: false, injured: false, healed: false }
 }
 
 // 添加评价
@@ -79,7 +101,9 @@ router.post('/', authMiddleware, (req, res) => {
       levelDown: newLevel < student.pet_level,
       graduated,
       died: statusCheck.died,
-      revived: statusCheck.revived
+      revived: statusCheck.revived,
+      injured: statusCheck.injured,
+      healed: statusCheck.healed
     })
   }
 
@@ -88,7 +112,9 @@ router.post('/', authMiddleware, (req, res) => {
     timestamp: now,
     petStatus: statusCheck.status,
     died: statusCheck.died,
-    revived: statusCheck.revived
+    revived: statusCheck.revived,
+    injured: statusCheck.injured,
+    healed: statusCheck.healed
   })
 })
 

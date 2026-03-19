@@ -360,9 +360,16 @@ async function handleEvaluate(rule: Rule) {
     if (res.data.died) {
       toast.error(`💀 ${selectedStudent.value.name} 的宠物因积分过低而死亡...加油复活它吧！`)
     }
-    // 复活提示
+    // 受伤提示
+    if (res.data.injured) {
+      toast.warning(`🩹 ${selectedStudent.value.name} 的宠物受伤了！快加油恢复吧！`)
+    }
+    // 复活/恢复提示
     if (res.data.revived) {
-      toast.success(`🎉 ${selectedStudent.value.name} 的宠物复活了！`)
+      toast.success(`✨ ${selectedStudent.value.name} 的宠物复活了！`)
+    }
+    if (res.data.healed && !res.data.revived) {
+      toast.success(`💚 ${selectedStudent.value.name} 的宠物恢复健康了！`)
     }
     showEvalModal.value = false
     await loadStudents()
@@ -389,9 +396,16 @@ async function handleDetailEvaluate(rule: Rule) {
     if (res.data.died) {
       toast.error(`💀 ${detailStudent.value.name} 的宠物因积分过低而死亡...加油复活它吧！`)
     }
-    // 复活提示
+    // 受伤提示
+    if (res.data.injured) {
+      toast.warning(`🩹 ${detailStudent.value.name} 的宠物受伤了！快加油恢复吧！`)
+    }
+    // 复活/恢复提示
     if (res.data.revived) {
-      toast.success(`🎉 ${detailStudent.value.name} 的宠物复活了！`)
+      toast.success(`✨ ${detailStudent.value.name} 的宠物复活了！`)
+    }
+    if (res.data.healed && !res.data.revived) {
+      toast.success(`💚 ${detailStudent.value.name} 的宠物恢复健康了！`)
     }
     await loadStudents()
     closeDetailPanel()
