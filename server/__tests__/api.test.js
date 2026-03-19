@@ -242,9 +242,25 @@ describe('Students API', () => {
 })
 
 describe('Rules API', () => {
+  let token
+
+  beforeAll(async () => {
+    // 注册并登录获取 token
+    await request(app)
+      .post('/api/auth/register')
+      .send({ username: 'ruleuser', password: 'password123' })
+
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ username: 'ruleuser', password: 'password123' })
+
+    token = res.body.token
+  })
+
   it('should list rules', async () => {
     const res = await request(app)
       .get('/api/rules')
+      .set('Authorization', `Bearer ${token}`)
 
     expect(res.status).toBe(200)
     expect(res.body.rules).toBeInstanceOf(Array)
