@@ -6,6 +6,20 @@ import { calculateLevel } from '../utils/level.js'
 
 const router = Router()
 
+// 死亡阈值：积分低于此值宠物死亡
+const DEATH_THRESHOLD = -50
+
+// 检查宠物状态
+function checkPetStatus(totalPoints, currentStatus) {
+  if (totalPoints < DEATH_THRESHOLD && currentStatus !== 'dead') {
+    return { status: 'dead', died: true, revived: false }
+  }
+  if (totalPoints >= 0 && currentStatus === 'dead') {
+    return { status: 'alive', died: false, revived: true }
+  }
+  return { status: currentStatus || 'alive', died: false, revived: false }
+}
+
 // 添加评价
 router.post('/', authMiddleware, (req, res) => {
   const { classId, studentId, points, reason, category } = req.body
@@ -28,6 +42,13 @@ router.post('/', authMiddleware, (req, res) => {
 
   // Get student info (after update)
   const student = db.prepare('SELECT * FROM students WHERE id = ?').get(studentId)
+
+  // Check pet status (death/revive)
+  const statusCheck = checkPetStatus(student.total_points, student.pet_status)
+  if (statusCheck.status !== student.pet_status) {
+    db.prepare('UPDATE students SET pet_status = ? WHERE id = ?').run(statusCheck.status, studentId)
+    student.pet_status = statusCheck.status
+  }
 
   // Update pet exp if student has a pet
   if (student && student.pet_type) {
@@ -53,13 +74,22 @@ router.post('/', authMiddleware, (req, res) => {
       timestamp: now,
       petLevel: newLevel,
       petExp: newExp,
+      petStatus: statusCheck.status,
       levelUp: newLevel > student.pet_level,
       levelDown: newLevel < student.pet_level,
-      graduated
+      graduated,
+      died: statusCheck.died,
+      revived: statusCheck.revived
     })
   }
 
-  res.json({ id, timestamp: now })
+  res.json({ 
+    id, 
+    timestamp: now,
+    petStatus: statusCheck.status,
+    died: statusCheck.died,
+    revived: statusCheck.revived
+  })
 })
 
 // 获取评价记录列表
@@ -140,13 +170,16 @@ router.delete('/latest', authMiddleware, (req, res) => {
   const newLevel = calculateLevel(newExp)
 
   // Undo points, exp and update level
-  db.prepare('UPDATE students SET total_points = total_points - ?, pet_exp = ?, pet_level = ? WHERE id = ?')
-    .run(record.points, newExp, newLevel, record.student_id)
+  const newTotalPoints = student.total_points - record.points
+  const statusCheck = checkPetStatus(newTotalPoints, student.pet_status)
+  
+  db.prepare('UPDATE students SET total_points = ?, pet_exp = ?, pet_level = ?, pet_status = ? WHERE id = ?')
+    .run(newTotalPoints, newExp, newLevel, statusCheck.status, record.student_id)
 
   // Delete record
   db.prepare('DELETE FROM evaluation_records WHERE id = ?').run(record.id)
 
-  res.json({ success: true, undone: record })
+  res.json({ success: true, undone: record, petStatus: statusCheck.status })
 })
 
 // 删除指定评价记录
@@ -175,13 +208,16 @@ router.delete('/:id', authMiddleware, (req, res) => {
   const newLevel = calculateLevel(newExp)
 
   // Undo points, exp and update level
-  db.prepare('UPDATE students SET total_points = total_points - ?, pet_exp = ?, pet_level = ? WHERE id = ?')
-    .run(record.points, newExp, newLevel, record.student_id)
+  const newTotalPoints = student.total_points - record.points
+  const statusCheck = checkPetStatus(newTotalPoints, student.pet_status)
+  
+  db.prepare('UPDATE students SET total_points = ?, pet_exp = ?, pet_level = ?, pet_status = ? WHERE id = ?')
+    .run(newTotalPoints, newExp, newLevel, statusCheck.status, record.student_id)
 
   // Delete record
   db.prepare('DELETE FROM evaluation_records WHERE id = ?').run(id)
 
-  res.json({ success: true, undone: record })
+  res.json({ success: true, undone: record, petStatus: statusCheck.status })
 })
 
 export default router

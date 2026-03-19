@@ -13,6 +13,7 @@ export interface Student {
   pet_type: string | null
   pet_level: number
   pet_exp: number
+  pet_status?: 'alive' | 'dead'
 }
 
 export interface Rule {
@@ -39,7 +40,10 @@ export interface EvaluationResult {
   timestamp: number
   petLevel?: number
   petExp?: number
+  petStatus?: 'alive' | 'dead'
   levelUp?: boolean
   levelDown?: boolean
   graduated?: boolean
+  died?: boolean
+  revived?: boolean
 }

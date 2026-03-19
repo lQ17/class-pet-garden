@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Student } from '@/types'
-import { getPetType, getLevelProgress, getPetLevelImage, calculateLevel } from '@/data/pets'
+import { getPetType, getLevelProgress, getPetLevelImage, calculateLevel, getDeadPetImage, DEATH_THRESHOLD } from '@/data/pets'
 import PetImage from './PetImage.vue'
 
 defineProps<{
@@ -43,7 +43,15 @@ function getLevelBorderClass(level: number): string {
 
 function getStudentPetImage(student: Student): string {
   if (!student.pet_type) return ''
+  // 死亡状态显示墓碑
+  if (student.pet_status === 'dead') {
+    return getDeadPetImage()
+  }
   return getPetLevelImage(student.pet_type, student.pet_level)
+}
+
+function isDead(student: Student): boolean {
+  return student.pet_status === 'dead' || student.total_points < DEATH_THRESHOLD
 }
 </script>
 
@@ -52,10 +60,17 @@ function getStudentPetImage(student: Student): string {
     class="bg-white rounded-2xl shadow-card overflow-hidden hover:shadow-card-hover transition-all duration-300 cursor-pointer relative group card-hover"
     :class="[getLevelBorderClass(getDisplayLevel(student)), {
       'ring-2 ring-purple-400 ring-offset-2': isSelected,
-      'ring-2 ring-red-400 ring-offset-2': isDeleteMode && isDeleteSelected
+      'ring-2 ring-red-400 ring-offset-2': isDeleteMode && isDeleteSelected,
+      'opacity-75 grayscale-[30%]': isDead(student)
     }]"
     @click="$emit('click')"
   >
+    <!-- 死亡标记 -->
+    <div
+      v-if="isDead(student)"
+      class="absolute inset-0 bg-black/10 z-10 pointer-events-none"
+    ></div>
+
     <!-- 评分动效 -->
     <Transition name="score-pop">
       <div
@@ -91,14 +106,16 @@ function getStudentPetImage(student: Student): string {
 
     <!-- 宠物图片区域 -->
     <div class="aspect-square flex items-center justify-center relative rounded-t-2xl"
-      :class="student.pet_type ? 'bg-gradient-to-br from-orange-100 via-amber-50 to-yellow-100' : 'bg-gradient-to-br from-gray-100 via-slate-50 to-gray-100'"
+      :class="student.pet_type 
+        ? (isDead(student) ? 'bg-gradient-to-br from-gray-200 via-slate-100 to-gray-200' : 'bg-gradient-to-br from-orange-100 via-amber-50 to-yellow-100') 
+        : 'bg-gradient-to-br from-gray-100 via-slate-50 to-gray-100'"
     >
       <!-- 有宠物时使用 PetImage 组件 -->
       <template v-if="student.pet_type">
         <div class="w-full h-full overflow-hidden" style="border-radius: 14px 14px 0 0; margin: -1px -1px 0 -1px; width: calc(100% + 2px);">
           <PetImage
             :src="getStudentPetImage(student)"
-            :alt="getPetType(student.pet_type)?.name"
+            :alt="isDead(student) ? '已死亡' : getPetType(student.pet_type)?.name"
             size="full"
             :rounded="false"
             :show-loading="true"
@@ -112,8 +129,15 @@ function getStudentPetImage(student: Student): string {
         <span class="text-xs text-gray-400 mt-2 group-hover:text-orange-400 transition-colors">点击领养</span>
       </div>
 
-      <!-- 等级徽章 -->
+      <!-- 等级徽章 / 死亡标记 -->
       <div
+        v-if="isDead(student)"
+        class="absolute bottom-3 right-3 font-bold px-3 py-1 rounded-full shadow-lg bg-gray-600 text-white text-sm"
+      >
+        💀 已死亡
+      </div>
+      <div
+        v-else
         class="absolute bottom-3 right-3 font-bold px-3 py-1 rounded-full shadow-lg text-white text-sm"
         :class="`bg-gradient-to-r ${getLevelBgClass(getDisplayLevel(student))}`"
       >
@@ -128,15 +152,20 @@ function getStudentPetImage(student: Student): string {
       <div class="flex items-center justify-between mb-2">
         <span class="font-bold text-lg text-gray-800 group-hover:text-orange-500 transition-colors">{{ student.name }}</span>
         <span class="text-xs px-2 py-1 rounded-full"
-          :class="student.pet_type ? 'bg-gradient-to-r from-orange-100 to-pink-100 text-orange-600' : 'bg-gray-100 text-gray-400'">
-          {{ student.pet_type ? getPetType(student.pet_type)?.name : '未领养' }}
+          :class="isDead(student) 
+            ? 'bg-gray-200 text-gray-500' 
+            : (student.pet_type ? 'bg-gradient-to-r from-orange-100 to-pink-100 text-orange-600' : 'bg-gray-100 text-gray-400')">
+          {{ isDead(student) ? '💀 已死亡' : (student.pet_type ? getPetType(student.pet_type)?.name : '未领养') }}
         </span>
       </div>
 
       <!-- 成长值 + 积分 -->
       <div class="flex items-center justify-between text-sm mb-3">
         <span class="text-gray-500 flex items-center gap-1">
-          <template v-if="getLevelProgress(student.pet_exp).isMaxLevel">
+          <template v-if="isDead(student)">
+            <span class="text-xs text-gray-400 font-medium">积满 {{ -DEATH_THRESHOLD }} 分复活</span>
+          </template>
+          <template v-else-if="getLevelProgress(student.pet_exp).isMaxLevel">
             <span class="text-xs text-amber-500 font-medium">🏆 已毕业</span>
           </template>
           <template v-else>
@@ -148,13 +177,19 @@ function getStudentPetImage(student: Student): string {
         </span>
         <span class="font-bold text-lg flex items-center gap-1">
           <span class="text-yellow-400">⭐</span>
-          <span class="text-orange-500">{{ student.total_points }}</span>
+          <span :class="student.total_points < 0 ? 'text-red-500' : 'text-orange-500'">{{ student.total_points }}</span>
         </span>
       </div>
 
-      <!-- 进度条 -->
+      <!-- 进度条（死亡时显示复活进度） -->
       <div class="bg-gray-100 rounded-full h-2.5 overflow-hidden progress-glow">
         <div
+          v-if="isDead(student)"
+          class="rounded-full h-2.5 transition-all duration-500 bg-gradient-to-r from-gray-400 to-gray-500"
+          :style="{ width: `${Math.min(100, (student.total_points - DEATH_THRESHOLD) / (-DEATH_THRESHOLD) * 100)}%` }"
+        ></div>
+        <div
+          v-else
           class="rounded-full h-2.5 transition-all duration-500"
           :class="getDisplayLevel(student) >= 5 ? 'bg-gradient-to-r from-purple-400 via-pink-400 to-rose-400' : 'bg-gradient-to-r from-orange-400 via-amber-400 to-yellow-400'"
           :style="{ width: `${getLevelProgress(student.pet_exp).percentage}%` }"

@@ -40,6 +40,7 @@ export function initDb() {
       pet_type TEXT,
       pet_level INTEGER DEFAULT 1,
       pet_exp INTEGER DEFAULT 0,
+      pet_status TEXT DEFAULT 'alive',
       created_at INTEGER,
       FOREIGN KEY (class_id) REFERENCES classes(id)
     );
@@ -89,4 +90,11 @@ export function initDb() {
       ('rule_9', '坚持运动', 2, '健康', 0, 1704067200000),
       ('rule_10', '不讲卫生', -1, '健康', 0, 1704067200000);
   `)
+
+  // 迁移：添加 pet_status 字段（如果不存在）
+  try {
+    db.exec(`ALTER TABLE students ADD COLUMN pet_status TEXT DEFAULT 'alive'`)
+  } catch (e) {
+    // 字段已存在，忽略错误
+  }
 }

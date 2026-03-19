@@ -367,6 +367,14 @@ async function handleEvaluate(rule: Rule) {
     if (res.data.graduated) {
       toast.success(`🎓 恭喜！${selectedStudent.value.name} 的宠物毕业了！`)
     }
+    // 死亡提示
+    if (res.data.died) {
+      toast.error(`💀 ${selectedStudent.value.name} 的宠物因积分过低而死亡...加油复活它吧！`)
+    }
+    // 复活提示
+    if (res.data.revived) {
+      toast.success(`🎉 ${selectedStudent.value.name} 的宠物复活了！`)
+    }
     showEvalModal.value = false
     await loadStudents()
   } catch (error) {
@@ -387,6 +395,14 @@ async function handleDetailEvaluate(rule: Rule) {
     triggerScoreAnimation(detailStudent.value.id, rule.points)
     if (res.data.levelUp) {
       triggerLevelUp(detailStudent.value.name, res.data.petLevel, detailStudent.value.pet_type || '', res.data.petLevel - 1)
+    }
+    // 死亡提示
+    if (res.data.died) {
+      toast.error(`💀 ${detailStudent.value.name} 的宠物因积分过低而死亡...加油复活它吧！`)
+    }
+    // 复活提示
+    if (res.data.revived) {
+      toast.success(`🎉 ${detailStudent.value.name} 的宠物复活了！`)
     }
     await loadStudents()
     closeDetailPanel()
