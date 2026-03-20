@@ -195,26 +195,28 @@ function getHealthProgress(student: Student): number {
       </div>
 
       <!-- 状态徽章（右下角） -->
-      <div
-        v-if="getPetStatus(student) === 'dead'"
-        class="absolute bottom-3 right-3 font-bold px-3 py-1 rounded-full shadow-lg bg-gray-600 text-white text-sm"
-      >
-        💀 已死亡
-      </div>
-      <div
-        v-else-if="getPetStatus(student) === 'injured'"
-        class="absolute bottom-3 right-3 font-bold px-3 py-1 rounded-full shadow-lg bg-orange-500 text-white text-sm animate-pulse"
-      >
-        🩹 受伤中
-      </div>
-      <div
-        v-else
-        class="absolute bottom-3 right-3 font-bold px-3 py-1 rounded-full shadow-lg text-white text-sm"
-        :class="`bg-gradient-to-r ${getLevelBgClass(getDisplayLevel(student))}`"
-      >
-        <span v-if="getDisplayLevel(student) >= 10">👑</span>
-        <span v-else>Lv.</span>{{ getDisplayLevel(student) }}
-      </div>
+      <template v-if="student.pet_type">
+        <div
+          v-if="getPetStatus(student) === 'dead'"
+          class="absolute bottom-3 right-3 font-bold px-3 py-1 rounded-full shadow-lg bg-gray-600 text-white text-sm"
+        >
+          💀 已死亡
+        </div>
+        <div
+          v-else-if="getPetStatus(student) === 'injured'"
+          class="absolute bottom-3 right-3 font-bold px-3 py-1 rounded-full shadow-lg bg-orange-500 text-white text-sm animate-pulse"
+        >
+          🩹 受伤中
+        </div>
+        <div
+          v-else
+          class="absolute bottom-3 right-3 font-bold px-3 py-1 rounded-full shadow-lg text-white text-sm"
+          :class="`bg-gradient-to-r ${getLevelBgClass(getDisplayLevel(student))}`"
+        >
+          <span v-if="getDisplayLevel(student) >= 10">👑</span>
+          <span v-else>Lv.</span>{{ getDisplayLevel(student) }}
+        </div>
+      </template>
     </div>
 
     <!-- 信息区域 -->
