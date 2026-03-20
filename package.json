@@ -8,6 +8,8 @@
     "preview": "vite preview",
     "server": "node server/index.js",
     "start": "concurrently \"npm run dev\" \"npm run server\"",
+    "deploy": "npm run build && cp -r dist/* /var/www/pet-garden/ && chown -R www-data:www-data /var/www/pet-garden",
+    "stats": "node server/scripts/teachers.mjs",
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage"

@@ -577,9 +577,9 @@ onActivated(() => {
     <!-- Main Content -->
     <main class="flex-1 overflow-auto p-6">
       <!-- 工具栏：班级选择、搜索、排序、批量评价 -->
-      <div v-if="!batchMode" class="mb-4 flex flex-wrap items-center gap-3">
+      <div class="mb-4 flex flex-wrap items-center gap-3">
         <!-- 班级选择（自定义下拉） -->
-        <div class="relative" v-if="classes.length > 0">
+        <div v-if="classes.length > 0 && !batchMode" class="relative">
           <button 
             @click="showClassSelect = !showClassSelect"
             class="flex items-center gap-2 border-2 border-gray-200 rounded-xl px-4 py-2 text-sm bg-white shadow-sm hover:border-orange-400 transition-colors font-medium"
@@ -613,12 +613,18 @@ onActivated(() => {
             </div>
           </Transition>
         </div>
-        <span v-if="students.length > 0" class="text-sm text-gray-500">
+        <span v-if="students.length > 0 && !batchMode" class="text-sm text-gray-500">
           {{ students.length }} 人
         </span>
 
         <!-- 弹性空间，让后面的内容居中 -->
         <div class="flex-1"></div>
+
+        <!-- 批量模式提示 -->
+        <div v-if="batchMode" class="flex items-center gap-2 text-orange-600 font-medium">
+          <span>✅</span>
+          <span>已选择 {{ selectedStudents.size }} 人</span>
+        </div>
 
         <!-- 搜索和排序（居中） -->
         <div v-if="students.length > 0" class="flex items-center gap-3">
@@ -658,13 +664,20 @@ onActivated(() => {
         <!-- 弹性空间 -->
         <div class="flex-1"></div>
 
-        <!-- 批量评价按钮 -->
+        <!-- 批量评价按钮 / 退出批量评价 -->
         <button
-          v-if="students.length > 0"
+          v-if="students.length > 0 && !batchMode"
           @click="startBatchMode"
           class="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium text-sm shadow-sm hover:bg-gray-50 hover:border-gray-300 transition-all"
         >
           ✅ 批量评价
+        </button>
+        <button
+          v-if="batchMode"
+          @click="cancelBatchMode"
+          class="px-4 py-2 bg-orange-500 text-white rounded-xl font-medium text-sm shadow-sm hover:bg-orange-600 transition-all"
+        >
+          ✕ 退出批量评价
         </button>
       </div>
 

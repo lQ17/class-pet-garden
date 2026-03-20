@@ -42,10 +42,34 @@ npm run server   # 后端 :3002
 
 ### 生产部署
 
+项目使用 Nginx 托管静态文件，后端 API 独立运行。
+
+**部署命令：**
 ```bash
-npm run build    # 构建前端
-npm run server   # 启动后端
+# 构建并部署到 Nginx 静态目录
+npm run deploy
+
+# 查看用户和班级统计
+npm run stats
 ```
+
+**服务管理：**
+```bash
+# 查看后端服务状态
+systemctl status pet-garden
+
+# 重启后端服务
+sudo systemctl restart pet-garden
+
+# 查看日志
+journalctl -u pet-garden -f
+```
+
+**Nginx 配置要点：**
+- 静态文件：`/var/www/pet-garden/`
+- API 代理：`/pet-garden/api/` → `http://127.0.0.1:3002`
+- 已启用 gzip 压缩
+- 静态资源缓存 1 年
 
 ---
 

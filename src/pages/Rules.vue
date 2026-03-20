@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onActivated } from 'vue'
+import { ref, computed, onMounted, onActivated } from 'vue'
 import type { Rule, Class } from '@/types'
 import { useAuth } from '@/composables/useAuth'
 import { useToast } from '@/composables/useToast'
@@ -16,6 +16,15 @@ const currentClass = ref<Class | null>(null)
 const rules = ref<Rule[]>([])
 
 const categories = ['学习', '行为', '健康', '其他']
+
+// 预先分组，避免模板中重复 filter
+const rulesByCategory = computed(() => {
+  const grouped: Record<string, Rule[]> = {}
+  for (const cat of categories) {
+    grouped[cat] = rules.value.filter(r => r.category === cat)
+  }
+  return grouped
+})
 const newRuleName = ref('')
 const newRulePoints = ref(1)
 const newRuleCategory = ref('学习')
@@ -204,15 +213,15 @@ onActivated(() => {
       <!-- 规则列表 -->
       <div class="space-y-6" v-if="rules.length > 0">
           <template v-for="cat in categories" :key="cat">
-            <div v-if="rules.filter(r => r.category === cat).length > 0" class="bg-white rounded-2xl p-6 shadow-lg">
+            <div v-if="rulesByCategory[cat].length > 0" class="bg-white rounded-2xl p-6 shadow-lg">
               <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
                 <span>{{ cat === '学习' ? '📚' : cat === '行为' ? '🎯' : cat === '健康' ? '💪' : '📌' }}</span>
                 {{ cat }}
-                <span class="text-sm font-normal text-gray-400">({{ rules.filter(r => r.category === cat).length }}条)</span>
+                <span class="text-sm font-normal text-gray-400">({{ rulesByCategory[cat].length }}条)</span>
               </h3>
               <div class="space-y-2">
                 <div
-                  v-for="rule in rules.filter(r => r.category === cat)"
+                  v-for="rule in rulesByCategory[cat]"
                   :key="rule.id"
                   class="flex items-center justify-between p-3 rounded-xl border-2 transition-all"
                   :class="rule.points > 0 ? 'bg-green-50 border-green-200 hover:border-green-300' : 'bg-red-50 border-red-200 hover:border-red-300'"

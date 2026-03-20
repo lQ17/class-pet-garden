@@ -108,18 +108,22 @@ const DEFAULT_RULES = [
   { name: '扣分严重/打架/作弊/严重违纪', points: -8, category: '其他' },
 ]
 
-// 为用户复制默认规则
+// 为用户复制默认规则（使用事务批量插入）
 function copyDefaultRules(userId) {
   const now = Date.now()
   const stmt = db.prepare(`
     INSERT INTO evaluation_rules (id, name, points, category, user_id, created_at) 
     VALUES (?, ?, ?, ?, ?, ?)
   `)
-  
-  for (const rule of DEFAULT_RULES) {
-    stmt.run(uuidv4(), rule.name, rule.points, rule.category, userId, now)
-  }
-  
+
+  // 使用事务包装，84 条规则一次性提交
+  const insertMany = db.transaction((rules) => {
+    for (const rule of rules) {
+      stmt.run(uuidv4(), rule.name, rule.points, rule.category, userId, now)
+    }
+  })
+
+  insertMany(DEFAULT_RULES)
   return DEFAULT_RULES.length
 }
 

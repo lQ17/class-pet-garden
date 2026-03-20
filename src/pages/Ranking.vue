@@ -552,6 +552,18 @@ onActivated(() => {
 
 .crowd-icon {
   font-size: 1.5rem;
+  display: inline-block;
+  animation: look-around 2s ease-in-out infinite;
+}
+
+@keyframes look-around {
+  0%, 100% { transform: rotateY(0deg) scaleX(1); }
+  20% { transform: rotateY(0deg) scaleX(1); }
+  30% { transform: rotateY(20deg) scaleX(1); }
+  50% { transform: rotateY(20deg) scaleX(1); }
+  60% { transform: rotateY(0deg) scaleX(-1); }
+  80% { transform: rotateY(0deg) scaleX(-1); }
+  90% { transform: rotateY(0deg) scaleX(1); }
 }
 
 .crowd-container {
