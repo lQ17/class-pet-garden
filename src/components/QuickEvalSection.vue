@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import type { Rule } from '@/types'
 import { useAuth } from '@/composables/useAuth'
 
@@ -61,10 +61,10 @@ defineExpose({
   loadFrequentRules
 })
 
-// 监听 rules 变化
-watch(() => props.rules, () => {
-  // rules 变化时重新加载常用规则
-}, { immediate: true })
+// 组件挂载时加载常用规则
+onMounted(() => {
+  loadFrequentRules()
+})
 </script>
 
 <template>

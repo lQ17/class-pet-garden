@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
 import type { Student, Rule, EvaluationRecord } from '@/types'
 import { getPetType, getLevelProgress, getPetLevelImage, calculateLevel } from '@/data/pets'
 import QuickEvalSection from './QuickEvalSection.vue'
 
-const props = defineProps<{
+defineProps<{
   show: boolean
   student: Student | null
   rules: Rule[]
@@ -16,8 +15,6 @@ defineEmits<{
   changePet: []
   evaluate: [rule: Rule]
 }>()
-
-const quickEvalRef = ref<InstanceType<typeof QuickEvalSection> | null>(null)
 
 function getDisplayLevel(student: Student): number {
   return calculateLevel(student.pet_exp)
@@ -31,12 +28,6 @@ function getStudentPetImage(student: Student): string {
 function formatDate(timestamp: number) {
   return new Date(timestamp).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
-
-watch(() => props.show, async (show) => {
-  if (show) {
-    quickEvalRef.value?.loadFrequentRules()
-  }
-})
 </script>
 
 <template>
@@ -95,7 +86,6 @@ watch(() => props.show, async (show) => {
 
         <!-- 快速评价（复用组件） -->
         <QuickEvalSection
-          ref="quickEvalRef"
           :rules="rules"
           @evaluate="$emit('evaluate', $event)"
         />

@@ -5,8 +5,7 @@ defineProps<{
 }>()
 
 defineEmits<{
-  addPoints: []
-  subPoints: []
+  evaluate: []
   confirmDelete: []
   cancel: []
 }>()
@@ -16,17 +15,12 @@ defineEmits<{
   <!-- 批量操作栏 -->
   <Transition name="slide-up">
     <div v-if="mode === 'batch' && selectedCount > 0" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-lg rounded-2xl shadow-2xl p-4 flex gap-4 z-40 border border-gray-100">
+      <span class="text-gray-600 py-3 font-medium">已选 <span class="text-orange-500 font-bold">{{ selectedCount }}</span> 人</span>
       <button
-        @click="$emit('addPoints')"
-        class="bg-gradient-to-r from-green-400 to-emerald-500 text-white px-8 py-3 rounded-xl font-bold hover:shadow-lg hover:scale-105 transition-all flex items-center gap-2"
+        @click="$emit('evaluate')"
+        class="bg-gradient-to-r from-orange-400 to-pink-500 text-white px-8 py-3 rounded-xl font-bold hover:shadow-lg hover:scale-105 transition-all flex items-center gap-2"
       >
-        <span class="text-xl">⬆️</span> 统一加分
-      </button>
-      <button
-        @click="$emit('subPoints')"
-        class="bg-gradient-to-r from-red-400 to-pink-500 text-white px-8 py-3 rounded-xl font-bold hover:shadow-lg hover:scale-105 transition-all flex items-center gap-2"
-      >
-        <span class="text-xl">⬇️</span> 统一扣分
+        <span class="text-xl">⚡</span> 快速评价
       </button>
     </div>
   </Transition>

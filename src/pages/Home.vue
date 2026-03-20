@@ -797,8 +797,7 @@ onActivated(() => {
         v-if="batchMode"
         :selected-count="selectedStudents.size"
         mode="batch"
-        @add-points="selectedStudent = null; showEvalModal = true"
-        @sub-points="selectedStudent = null; showEvalModal = true"
+        @evaluate="selectedStudent = null; showEvalModal = true"
       />
 
       <BatchActionBar

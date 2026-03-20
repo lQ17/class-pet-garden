@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
 import type { Rule } from '@/types'
 import QuickEvalSection from '../QuickEvalSection.vue'
 
-const props = defineProps<{
+defineProps<{
   show: boolean
   selectedCount: number
   rules: Rule[]
@@ -13,14 +12,6 @@ defineEmits<{
   close: []
   evaluate: [rule: Rule]
 }>()
-
-const quickEvalRef = ref<InstanceType<typeof QuickEvalSection> | null>(null)
-
-watch(() => props.show, async (show) => {
-  if (show) {
-    quickEvalRef.value?.loadFrequentRules()
-  }
-})
 </script>
 
 <template>
@@ -49,7 +40,6 @@ watch(() => props.show, async (show) => {
 
         <!-- 快速评价（复用组件） -->
         <QuickEvalSection
-          ref="quickEvalRef"
           :rules="rules"
           @evaluate="$emit('evaluate', $event)"
         />
