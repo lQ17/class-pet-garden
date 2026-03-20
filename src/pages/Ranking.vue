@@ -584,20 +584,38 @@ onActivated(() => {
   min-width: 180px;
   box-shadow: 0 4px 15px rgba(0,0,0,0.2);
   border: 1px solid rgba(255,255,255,0.2);
-  animation: sway 3s ease-in-out infinite;
   transition: all 0.3s ease;
+  /* 使用 CSS 变量实现随机动画 */
+  --x1: 2px;
+  --y1: -3px;
+  --x2: -1px;
+  --y2: 2px;
+  --r1: 0.5deg;
+  --r2: -0.3deg;
+  animation: float-random 4s ease-in-out infinite;
 }
+
+/* 为不同索引的元素设置不同的动画参数 */
+.crowd-member:nth-child(5n+1) { --x1: 3px; --y1: -2px; --x2: -2px; --y2: 3px; --r1: 0.8deg; --r2: -0.5deg; animation-delay: 0s; }
+.crowd-member:nth-child(5n+2) { --x1: -2px; --y1: 3px; --x2: 2px; --y2: -2px; --r1: -0.6deg; --r2: 0.4deg; animation-delay: 0.5s; }
+.crowd-member:nth-child(5n+3) { --x1: 1px; --y1: -4px; --x2: -3px; --y2: 1px; --r1: 0.3deg; --r2: -0.7deg; animation-delay: 1s; }
+.crowd-member:nth-child(5n+4) { --x1: -3px; --y1: 2px; --x2: 1px; --y2: -3px; --r1: -0.4deg; --r2: 0.6deg; animation-delay: 1.5s; }
+.crowd-member:nth-child(5n+5) { --x1: 2px; --y1: -1px; --x2: -2px; --y2: 4px; --r1: 0.7deg; --r2: -0.3deg; animation-delay: 2s; }
 
 .crowd-member:hover {
   transform: translateY(-5px) scale(1.05);
   background: rgba(255,255,255,0.25);
   box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+  animation-play-state: paused;
 }
 
-@keyframes sway {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  25% { transform: translateY(-3px) rotate(0.5deg); }
-  75% { transform: translateY(2px) rotate(-0.5deg); }
+@keyframes float-random {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  20% { transform: translate(var(--x1), var(--y1)) rotate(var(--r1)); }
+  40% { transform: translate(var(--x2), var(--y2)) rotate(var(--r2)); }
+  60% { transform: translate(calc(var(--x1) * -0.5), calc(var(--y1) * 0.8)) rotate(calc(var(--r1) * -0.5)); }
+  80% { transform: translate(calc(var(--x2) * 0.7), calc(var(--y2) * -0.6)) rotate(calc(var(--r2) * 0.7)); }
+  100% { transform: translate(0, 0) rotate(0deg); }
 }
 
 .crowd-rank {

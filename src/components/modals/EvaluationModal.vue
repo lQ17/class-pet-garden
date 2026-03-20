@@ -44,6 +44,10 @@ async function loadFrequentRules() {
   try {
     const res = await api.get('/rules/frequent')
     frequentRules.value = res.data.rules || []
+    // 如果有常用规则，默认选中常用标签
+    if (frequentRules.value.length > 0) {
+      selectedTab.value = '常用'
+    }
   } catch (error) {
     console.error('加载常用规则失败:', error)
     frequentRules.value = []
