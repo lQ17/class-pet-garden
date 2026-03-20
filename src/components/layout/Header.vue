@@ -110,11 +110,11 @@ function isActive(path: string) {
           📖 图鉴
         </router-link>
         <router-link 
-          to="/rules" 
+          to="/settings" 
           class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all"
-          :class="isActive('/rules') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'"
+          :class="isActive('/settings') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'"
         >
-          ⚙️ 规则
+          ⚙️ 设置
         </router-link>
       </nav>
     </div>

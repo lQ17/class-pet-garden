@@ -77,23 +77,37 @@ export function initDb() {
       FOREIGN KEY (student_id) REFERENCES students(id)
     );
 
-    -- 插入默认评价规则
-    INSERT OR IGNORE INTO evaluation_rules (id, name, points, category, is_custom, created_at) VALUES
-      ('rule_1', '课堂积极发言', 2, '学习', 0, 1704067200000),
-      ('rule_2', '作业完成优秀', 3, '学习', 0, 1704067200000),
-      ('rule_3', '帮助同学', 2, '行为', 0, 1704067200000),
-      ('rule_4', '遵守纪律', 1, '行为', 0, 1704067200000),
-      ('rule_5', '迟到', -1, '行为', 0, 1704067200000),
-      ('rule_6', '未完成作业', -2, '学习', 0, 1704067200000),
-      ('rule_7', '课堂捣乱', -3, '行为', 0, 1704067200000),
-      ('rule_8', '主动打扫卫生', 2, '健康', 0, 1704067200000),
-      ('rule_9', '坚持运动', 2, '健康', 0, 1704067200000),
-      ('rule_10', '不讲卫生', -1, '健康', 0, 1704067200000);
+    -- 学生标签表（用户隔离）
+    CREATE TABLE IF NOT EXISTS student_tags (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      color TEXT DEFAULT '#6366f1',
+      created_at INTEGER,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+
+    -- 学生-标签关联表
+    CREATE TABLE IF NOT EXISTS student_tag_relations (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      tag_id TEXT NOT NULL,
+      created_at INTEGER,
+      FOREIGN KEY (student_id) REFERENCES students(id),
+      FOREIGN KEY (tag_id) REFERENCES student_tags(id)
+    );
   `)
 
   // 迁移：添加 pet_status 字段（如果不存在）
   try {
     db.exec(`ALTER TABLE students ADD COLUMN pet_status TEXT DEFAULT 'alive'`)
+  } catch (e) {
+    // 字段已存在，忽略错误
+  }
+
+  // 迁移：添加 user_id 到 evaluation_rules（如果不存在）
+  try {
+    db.exec(`ALTER TABLE evaluation_rules ADD COLUMN user_id TEXT`)
   } catch (e) {
     // 字段已存在，忽略错误
   }
