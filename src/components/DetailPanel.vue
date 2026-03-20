@@ -2,6 +2,14 @@
 import { ref, computed, watch } from 'vue'
 import type { Student, Rule, EvaluationRecord } from '@/types'
 import { getPetType, getLevelProgress, getPetLevelImage, calculateLevel } from '@/data/pets'
+import { useAuth } from '@/composables/useAuth'
+
+interface FrequentRule {
+  name: string
+  points: number
+  category: string
+  use_count: number
+}
 
 const props = defineProps<{
   show: boolean
@@ -16,12 +24,39 @@ defineEmits<{
   evaluate: [rule: Rule]
 }>()
 
+const { api } = useAuth()
+
 const detailEvalTab = ref('学习')
-const categories = ['学习', '行为', '健康', '其他']
+const categories = ['常用', '学习', '行为', '健康', '其他']
+const frequentRules = ref<FrequentRule[]>([])
 
 const currentCategoryRules = computed(() => {
+  if (detailEvalTab.value === '常用') {
+    return frequentRules.value.map(r => ({
+      id: `freq-${r.name}-${r.points}`,
+      name: r.name,
+      points: r.points,
+      category: r.category
+    }))
+  }
   return props.rules.filter(r => r.category === detailEvalTab.value)
 })
+
+async function loadFrequentRules() {
+  try {
+    const res = await api.get('/rules/frequent')
+    frequentRules.value = res.data.rules || []
+    if (frequentRules.value.length > 0) {
+      detailEvalTab.value = '常用'
+    } else {
+      detailEvalTab.value = '学习'
+    }
+  } catch (error) {
+    console.error('加载常用规则失败:', error)
+    frequentRules.value = []
+    detailEvalTab.value = '学习'
+  }
+}
 
 function getDisplayLevel(student: Student): number {
   return calculateLevel(student.pet_exp)
@@ -36,9 +71,9 @@ function formatDate(timestamp: number) {
   return new Date(timestamp).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-watch(() => props.show, (show) => {
+watch(() => props.show, async (show) => {
   if (show) {
-    detailEvalTab.value = '学习'
+    await loadFrequentRules()
   }
 })
 </script>
@@ -114,11 +149,18 @@ watch(() => props.show, (show) => {
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
             >
               {{ cat }}
+              <span v-if="cat === '常用' && frequentRules.length > 0" class="ml-1 text-xs opacity-75">({{ frequentRules.length }})</span>
             </button>
           </div>
           <!-- 规则按钮 -->
           <div class="h-[400px] overflow-y-auto pr-1 custom-scrollbar">
-            <div class="grid grid-cols-5 gap-2 content-start">
+            <!-- 常用规则空状态 -->
+            <div v-if="detailEvalTab === '常用' && frequentRules.length === 0" class="text-center py-16 text-gray-500">
+              <div class="text-4xl mb-3">📊</div>
+              <p>暂无常用规则</p>
+              <p class="text-xs mt-1 text-gray-400">使用评价后会自动记录</p>
+            </div>
+            <div v-else class="grid grid-cols-5 gap-2 content-start">
               <button
                 v-for="rule in currentCategoryRules"
                 :key="rule.id"

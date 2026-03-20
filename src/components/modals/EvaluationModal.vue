@@ -54,10 +54,14 @@ async function loadFrequentRules() {
   }
 }
 
-watch(() => props.show, (show) => {
+watch(() => props.show, async (show) => {
   if (show) {
-    selectedTab.value = '学习'
-    loadFrequentRules()
+    await loadFrequentRules()
+    // loadFrequentRules 已经根据结果设置了 selectedTab
+    // 如果没有常用规则，默认选中学习
+    if (selectedTab.value !== '常用') {
+      selectedTab.value = '学习'
+    }
   }
 })
 
