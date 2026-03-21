@@ -161,7 +161,7 @@ onMounted(() => {
           <div v-if="showUserMenu" @click="showUserMenu = false" class="fixed inset-0 z-40"></div>
           <Transition name="dropdown">
             <div v-if="showUserMenu" class="absolute right-0 top-full mt-1.5 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 w-44 z-50 overflow-hidden">
-              <div v-if="isGuest" class="px-3 py-2 text-sm text-gray-500 border-b border-gray-100">当前为游客模式</div>
+              <div v-if="isGuest" class="px-3 py-2 text-sm text-amber-600 border-b border-gray-100">游客模式 · 点击登录保存数据</div>
               <div v-else class="px-3 py-2 text-sm text-gray-500 border-b border-gray-100">已登录: {{ username }}</div>
               <template v-if="isGuest">
                 <button @click="handleLogin" class="w-full text-left px-3 py-2 text-sm hover:bg-gradient-to-r hover:from-orange-50 hover:to-pink-50 transition-colors">🔑 登录 / 注册</button>
@@ -173,15 +173,6 @@ onMounted(() => {
           </Transition>
         </div>
       </div>
-    </div>
-
-    <!-- 游客提示 -->
-    <div v-if="isGuest" class="px-4 py-1.5 bg-amber-500/90 text-white text-sm flex items-center justify-center gap-2">
-      <span>💡</span>
-      <span>当前为游客模式，数据仅保存在本地</span>
-      <button @click="handleLogin" class="ml-2 px-3 py-0.5 bg-white text-amber-600 rounded-full text-xs font-bold hover:bg-amber-50 transition-colors">
-        立即注册
-      </button>
     </div>
 
     <!-- 第二行：导航 -->
