@@ -38,7 +38,7 @@ const { triggerAnimation: triggerPetStatusAnimation } = usePetStatusAnimation()
 
 // 使用全局状态
 const { classes, currentClass, loadClasses } = useClasses()
-const { students, isLoading, loadStudents, addStudent: doAddStudent, importStudents: doImportStudents, changePet, batchEvaluate, addEvaluation, undoEvaluation } = useStudents()
+const { students, loadStudents, addStudent: doAddStudent, importStudents: doImportStudents, changePet, batchEvaluate, addEvaluation, undoEvaluation } = useStudents()
 const { allTags, loadTags, getStudentTags } = useTags()
 const { showLoginModal, closeLoginModal } = useLoginModal()
 
@@ -368,7 +368,7 @@ onActivated(() => {
 <template>
   <PageLayout>
     <!-- Loading -->
-    <LoadingScreen :show="isLoading" />
+    <LoadingScreen :show="!isLoaded" />
 
     <!-- Level Up Modal -->
     <LevelUpModal
@@ -384,10 +384,10 @@ onActivated(() => {
     <PetStatusModal />
 
     <!-- Header -->
-    <Header :batch-mode="batchMode" />
+    <Header v-if="isLoaded" :batch-mode="batchMode" />
 
     <!-- Main Content -->
-    <div class="overflow-auto">
+    <div v-if="isLoaded" class="overflow-auto">
       <!-- 工具栏 -->
       <div class="mb-4 flex flex-wrap items-center gap-3">
         <!-- 左侧：搜索、标签、排序 -->
