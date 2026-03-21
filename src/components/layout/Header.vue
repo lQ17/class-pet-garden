@@ -114,8 +114,17 @@ onMounted(() => {
         <span class="text-gradient">班级宠物园</span>
       </router-link>
 
-      <!-- Right: 班级选择 + 用户 -->
+      <!-- Right: 游客提示 + 班级选择 + 用户 -->
       <div class="flex items-center gap-3">
+        <!-- 游客提示 -->
+        <button 
+          v-if="isGuest"
+          @click="handleLogin"
+          class="px-3 py-1 rounded-full text-xs font-bold bg-white/95 text-amber-600 hover:bg-white transition-colors shadow-sm"
+        >
+          游客模式 · 点击登录
+        </button>
+
         <!-- 班级选择 -->
         <div v-if="classes.length > 0" class="relative">
           <button 
@@ -161,7 +170,7 @@ onMounted(() => {
           <div v-if="showUserMenu" @click="showUserMenu = false" class="fixed inset-0 z-40"></div>
           <Transition name="dropdown">
             <div v-if="showUserMenu" class="absolute right-0 top-full mt-1.5 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 w-44 z-50 overflow-hidden">
-              <div v-if="isGuest" class="px-3 py-2 text-sm text-amber-600 border-b border-gray-100">游客模式 · 点击登录保存数据</div>
+              <div v-if="isGuest" class="px-3 py-2 text-sm text-gray-500 border-b border-gray-100">游客模式</div>
               <div v-else class="px-3 py-2 text-sm text-gray-500 border-b border-gray-100">已登录: {{ username }}</div>
               <template v-if="isGuest">
                 <button @click="handleLogin" class="w-full text-left px-3 py-2 text-sm hover:bg-gradient-to-r hover:from-orange-50 hover:to-pink-50 transition-colors">🔑 登录 / 注册</button>
