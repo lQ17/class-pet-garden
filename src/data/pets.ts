@@ -102,16 +102,6 @@ export function checkPetStatus(totalPoints: number, currentStatus?: string | nul
   return 'alive'
 }
 
-// 获取死亡宠物图片（墓碑）
-export function getDeadPetImage(): string {
-  return '/pet-garden/dead.svg'
-}
-
-// 获取受伤状态图片（带伤的宠物）
-export function getInjuredOverlay(): string {
-  return '/pet-garden/injured.svg'
-}
-
 // 获取宠物等级1的图片（用于选择列表展示）
 export function getPetLevel1Image(petId: string): string {
   return getPetLevelImage(petId, 1)

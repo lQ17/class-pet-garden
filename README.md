@@ -143,10 +143,15 @@ class-pet-garden/
 │   │   ├── DetailPanel.vue    # 详情面板
 │   │   ├── modals/            # 模态框组件
 │   │   └── layout/            # 布局组件
-│   ├── composables/            # 组合式函数
+│   ├── composables/            # 组合式函数（单例状态）
 │   │   ├── useAuth.ts         # 认证
+│   │   ├── useClasses.ts      # 班级状态
+│   │   ├── useStudents.ts     # 学生状态
+│   │   ├── useTags.ts         # 标签状态
 │   │   ├── useToast.ts        # 提示
 │   │   └── useLevelUp.ts      # 动画
+│   ├── utils/                  # 工具函数
+│   │   └── pinyin.ts          # 拼音匹配
 │   ├── pages/                  # 页面
 │   ├── data/                   # 数据配置
 │   └── types/                  # 类型定义
@@ -226,12 +231,30 @@ npm test
 
 ## 📊 重构成果
 
+### 代码量优化
+
 | 指标 | 重构前 | 重构后 | 改善 |
 |------|--------|--------|------|
 | Home.vue | 2074 行 | 648 行 | -68% |
 | server/index.js | 935 行 | 208 行 | -78% |
 | 测试覆盖 | 27 个 | 63 个 | +133% |
 | 组件数量 | 5 个 | 15+ 个 | 模块化 |
+
+### 状态管理重构（2026-03）
+
+| 改动 | 说明 |
+|------|------|
+| `useStudents.ts` | 单例学生状态，多页面共享 |
+| `useTags.ts` | 单例标签状态 |
+| `utils/pinyin.ts` | 统一拼音匹配工具 |
+| 移除 localStorage hack | 数据通过 Vue 响应式自动同步 |
+| 死代码清理 | 删除未使用的 `useEvaluations.ts`、`getDeadPetImage` 等 |
+
+### 页面数据同步
+
+重构前：各页面独立维护学生数据，通过 localStorage 时间戳通知同步（hack）
+
+重构后：单例状态管理，一处更新处处同步
 
 ---
 

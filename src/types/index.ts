@@ -49,3 +49,9 @@ export interface EvaluationResult {
   injured?: boolean
   healed?: boolean
 }
+
+export interface Tag {
+  id: string
+  name: string
+  color: string
+}

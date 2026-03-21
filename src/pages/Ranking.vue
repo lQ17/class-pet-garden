@@ -1,16 +1,13 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onActivated, watch } from 'vue'
+import { computed, onActivated } from 'vue'
 import type { Student } from '@/types'
-import { useAuth } from '@/composables/useAuth'
 import { useClasses } from '@/composables/useClasses'
-import { getPetLevelImage, calculateLevel } from '@/data/pets'
+import { useStudents } from '@/composables/useStudents'
+import { getPetLevelImage } from '@/data/pets'
 import Header from '@/components/layout/Header.vue'
 
-const { api } = useAuth()
 const { currentClass, syncCurrentClass } = useClasses()
-
-const students = ref<Student[]>([])
-const isLoading = ref(true)
+const { students, isLoading, loadStudents, getDisplayLevel } = useStudents()
 
 // 按积分排序的排行榜
 const ranking = computed(() => {
@@ -38,42 +35,9 @@ function getStudentPetImage(student: Student): string {
   return getPetLevelImage(student.pet_type, level)
 }
 
-function getDisplayLevel(student: Student): number {
-  return calculateLevel(student.pet_exp)
-}
-
-async function loadStudents() {
-  if (!currentClass.value) return
-  isLoading.value = true
-  try {
-    const res = await api.get(`/classes/${currentClass.value.id}/students`)
-    students.value = res.data.students
-  } catch (error) {
-    console.error('加载学生失败:', error)
-  } finally {
-    isLoading.value = false
-  }
-}
-
-// 监听班级变化
-watch(currentClass, (newClass) => {
-  if (newClass) {
-    loadStudents()
-  } else {
-    students.value = []
-  }
-})
-
-onMounted(() => {
-  if (currentClass.value) {
-    loadStudents()
-  } else {
-    isLoading.value = false
-  }
-})
-
 onActivated(() => {
   syncCurrentClass()
+  loadStudents()
 })
 </script>
 

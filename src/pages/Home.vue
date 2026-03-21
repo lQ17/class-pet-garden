@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onActivated, onUnmounted, nextTick, watch } from 'vue'
-import type { Student, Rule, EvaluationRecord } from '@/types'
+import { ref, computed, onMounted, onActivated, onUnmounted, nextTick } from 'vue'
+import type { Student, Rule, EvaluationRecord, Tag } from '@/types'
 import { useAuth, setGlobalErrorHandler } from '@/composables/useAuth'
 import { useClasses } from '@/composables/useClasses'
+import { useStudents } from '@/composables/useStudents'
+import { useTags } from '@/composables/useTags'
 import { useToast } from '@/composables/useToast'
 import { useConfirm } from '@/composables/useConfirm'
 import { useLevelUp } from '@/composables/useLevelUp'
 import { usePetStatusAnimation } from '@/composables/usePetStatusAnimation'
 import { getPetType } from '@/data/pets'
-import { pinyin } from 'pinyin-pro'
+import { matchByPinyin } from '@/utils/pinyin'
 
 // Components
 import LoadingScreen from '@/components/LoadingScreen.vue'
@@ -33,8 +35,10 @@ const { confirmDialog, showConfirm, closeConfirm } = useConfirm()
 const { showLevelUpAnimation, levelUpInfo, levelUpPhase, triggerLevelUp } = useLevelUp()
 const { triggerAnimation: triggerPetStatusAnimation } = usePetStatusAnimation()
 
-// 使用全局班级状态
+// 使用全局状态
 const { classes, currentClass, loadClasses, syncCurrentClass } = useClasses()
+const { students, isLoading, loadStudents, addStudent: doAddStudent, importStudents: doImportStudents, changePet, batchEvaluate, addEvaluation, undoEvaluation } = useStudents()
+const { allTags, loadTags, getStudentTags } = useTags()
 
 // 设置全局错误处理器
 setGlobalErrorHandler((message) => {
@@ -42,19 +46,11 @@ setGlobalErrorHandler((message) => {
 })
 
 // State
-const students = ref<Student[]>([])
 const rules = ref<Rule[]>([])
 const searchQuery = ref('')
 const sortBy = ref<'name' | 'studentNo' | 'progress'>('name')
 const sortOrder = ref<'asc' | 'desc'>('asc')
-const isLoading = ref(true)
 const isLoaded = ref(false)
-
-// 数据版本控制
-const lastDataVersion = ref<number>(0)
-function getDataVersion(): number {
-  return parseInt(localStorage.getItem('pet-garden-data-version') || '0', 10)
-}
 
 // Modal states
 const showStudentModal = ref(false)
@@ -71,8 +67,6 @@ const studentRecords = ref<EvaluationRecord[]>([])
 // Batch mode
 const batchMode = ref(false)
 const selectedStudents = ref<Set<string>>(new Set())
-const showDeleteStudentMode = ref(false)
-const deleteStudentList = ref<string[]>([])
 
 // Evaluation records
 const evaluationRecords = ref<EvaluationRecord[]>([])
@@ -84,29 +78,15 @@ const totalPages = ref(0)
 const scoreAnimations = ref<Map<string, { points: number; show: boolean }>>(new Map())
 
 // 标签过滤
-interface Tag {
-  id: string
-  name: string
-  color: string
-}
-const allTags = ref<Tag[]>([])
 const selectedTagFilter = ref<Tag | null>(null)
 const showTagFilter = ref(false)
-
-// 拼音辅助
-function getPinyinInitials(text: string): string {
-  return pinyin(text, { pattern: 'first', toneType: 'none' }).replace(/\s/g, '').toLowerCase()
-}
-function getPinyinFull(text: string): string {
-  return pinyin(text, { toneType: 'none' }).replace(/\s/g, '').toLowerCase()
-}
 
 // Computed
 const filteredStudents = computed(() => {
   let result = [...students.value]
   if (selectedTagFilter.value) {
     result = result.filter(s => {
-      const studentTags = (s as any).tags || []
+      const studentTags = getStudentTags(s.id)
       return studentTags.some((t: Tag) => t.id === selectedTagFilter.value!.id)
     })
   }
@@ -115,8 +95,7 @@ const filteredStudents = computed(() => {
     result = result.filter(s => {
       if (s.name.toLowerCase().includes(query)) return true
       if (s.student_no && s.student_no.toLowerCase().includes(query)) return true
-      if (getPinyinInitials(s.name).includes(query)) return true
-      if (getPinyinFull(s.name).includes(query)) return true
+      if (matchByPinyin(s.name, query)) return true
       return false
     })
   }
@@ -143,16 +122,6 @@ function handleLogin(user: { id: string; username: string; isGuest: boolean }) {
 }
 
 // 数据加载
-async function loadStudents() {
-  if (!currentClass.value) return
-  try {
-    const res = await api.get(`/classes/${currentClass.value.id}/students`)
-    students.value = res.data.students
-  } catch (error) {
-    console.error('加载学生失败:', error)
-  }
-}
-
 async function loadRules() {
   try {
     const res = await api.get('/rules')
@@ -162,23 +131,12 @@ async function loadRules() {
   }
 }
 
-async function loadTags() {
-  try {
-    const res = await api.get('/tags')
-    allTags.value = res.data.tags
-  } catch (error) {
-    console.error('加载标签失败:', error)
-  }
-}
-
 // 学生操作
 async function addStudent(name: string, studentNo: string) {
   if (!name.trim() || !currentClass.value) return
   try {
-    await api.post('/students', { classId: currentClass.value.id, name: name.trim(), studentNo: studentNo || null })
+    await doAddStudent(name.trim(), studentNo || null)
     showStudentModal.value = false
-    localStorage.setItem('pet-garden-data-version', Date.now().toString())
-    await loadStudents()
   } catch (error) {
     toast.error('添加学生失败')
   }
@@ -200,51 +158,23 @@ async function importStudents(text: string) {
   }
   if (studentList.length === 0) { toast.warning('没有识别到学生信息'); return }
   try {
-    const res = await api.post('/students/import', { classId: currentClass.value.id, students: studentList })
-    toast.success(`成功导入 ${res.data.imported} 名学生`)
+    const res = await doImportStudents(studentList)
+    toast.success(`成功导入 ${res?.imported || studentList.length} 名学生`)
     showImportModal.value = false
-    localStorage.setItem('pet-garden-data-version', Date.now().toString())
-    await loadStudents()
   } catch (error) {
     toast.error('导入失败')
   }
-}
-
-async function batchDeleteStudents() {
-  if (deleteStudentList.value.length === 0) return
-  showConfirm({
-    title: '删除学生',
-    message: `确定删除 ${deleteStudentList.value.length} 名学生？此操作不可恢复！`,
-    confirmText: '删除',
-    type: 'danger',
-    onConfirm: async () => {
-      let successCount = 0
-      for (const studentId of deleteStudentList.value) {
-        try {
-          await api.delete(`/students/${studentId}`)
-          successCount++
-        } catch (error) {
-          console.error('删除失败:', error)
-        }
-      }
-      toast.success(`已删除 ${successCount} 名学生`)
-      cancelDeleteMode()
-      localStorage.setItem('pet-garden-data-version', Date.now().toString())
-      await loadStudents()
-    }
-  })
 }
 
 // 宠物操作
 async function selectPet(petId: string) {
   if (!selectedStudent.value) return
   try {
-    await api.put(`/students/${selectedStudent.value.id}/pet`, { petType: petId })
+    await changePet(selectedStudent.value.id, petId)
     const pet = getPetType(petId)
     toast.success(`🎉 ${selectedStudent.value.name} 领养了一只 ${pet?.name || '宠物'}！`)
     showPetModal.value = false
     selectedStudent.value = null
-    await loadStudents()
     if (detailStudent.value) {
       detailStudent.value = students.value.find(s => s.id === detailStudent.value?.id) || null
     }
@@ -263,54 +193,40 @@ async function handleEvaluate(rule: Rule) {
   if (!currentClass.value) return
   if (!selectedStudent.value) {
     const studentIds = Array.from(selectedStudents.value)
-    for (const studentId of studentIds) {
-      try {
-        await api.post('/evaluations', {
-          classId: currentClass.value.id,
-          studentId,
-          points: rule.points,
-          reason: rule.name,
-          category: rule.category
-        })
+    try {
+      await batchEvaluate(studentIds, { points: rule.points, name: rule.name, category: rule.category })
+      for (const studentId of studentIds) {
         triggerScoreAnimation(studentId, rule.points)
-      } catch (error) {
-        console.error('评价失败:', error)
       }
+      showEvalModal.value = false
+      toast.success(`已为 ${studentIds.length} 名学生${rule.points > 0 ? '加' : '扣'}${Math.abs(rule.points)}分`)
+      cancelBatchMode()
+    } catch (error) {
+      toast.error('评价失败')
     }
-    showEvalModal.value = false
-    toast.success(`已为 ${studentIds.length} 名学生${rule.points > 0 ? '加' : '扣'}${Math.abs(rule.points)}分`)
-    cancelBatchMode()
-    await loadStudents()
     return
   }
 
   try {
-    const res = await api.post('/evaluations', {
-      classId: currentClass.value.id,
-      studentId: selectedStudent.value.id,
-      points: rule.points,
-      reason: rule.name,
-      category: rule.category
-    })
+    const res = await addEvaluation(selectedStudent.value.id, { points: rule.points, name: rule.name, category: rule.category })
     triggerScoreAnimation(selectedStudent.value.id, rule.points)
-    if (res.data.levelUp) {
-      triggerLevelUp(selectedStudent.value.name, res.data.petLevel, selectedStudent.value.pet_type || '', res.data.petLevel - 1)
+    if (res?.levelUp) {
+      triggerLevelUp(selectedStudent.value.name, res.petLevel, selectedStudent.value.pet_type || '', res.petLevel - 1)
     }
-    if (res.data.graduated) {
+    if (res?.graduated) {
       toast.success(`🎓 恭喜！${selectedStudent.value.name} 的宠物毕业了！`)
     }
     const newTotalPoints = selectedStudent.value.total_points + rule.points
-    if (res.data.died) {
+    if (res?.died) {
       triggerPetStatusAnimation('death', selectedStudent.value.name, selectedStudent.value.pet_type || '', selectedStudent.value.pet_level || 1, 'injured', 'dead', newTotalPoints)
-    } else if (res.data.injured) {
+    } else if (res?.injured) {
       triggerPetStatusAnimation('injured', selectedStudent.value.name, selectedStudent.value.pet_type || '', selectedStudent.value.pet_level || 1, 'alive', 'injured', newTotalPoints)
-    } else if (res.data.revived) {
+    } else if (res?.revived) {
       triggerPetStatusAnimation('revive', selectedStudent.value.name, selectedStudent.value.pet_type || '', selectedStudent.value.pet_level || 1, 'dead', 'alive', newTotalPoints)
-    } else if (res.data.healed && !res.data.revived) {
+    } else if (res?.healed && !res.revived) {
       triggerPetStatusAnimation('heal', selectedStudent.value.name, selectedStudent.value.pet_type || '', selectedStudent.value.pet_level || 1, 'injured', 'alive', newTotalPoints)
     }
     showEvalModal.value = false
-    await loadStudents()
   } catch (error) {
     toast.error('评价失败')
   }
@@ -319,28 +235,21 @@ async function handleEvaluate(rule: Rule) {
 async function handleDetailEvaluate(rule: Rule) {
   if (!detailStudent.value || !currentClass.value) return
   try {
-    const res = await api.post('/evaluations', {
-      classId: currentClass.value.id,
-      studentId: detailStudent.value.id,
-      points: rule.points,
-      reason: rule.name,
-      category: rule.category
-    })
+    const res = await addEvaluation(detailStudent.value.id, { points: rule.points, name: rule.name, category: rule.category })
     triggerScoreAnimation(detailStudent.value.id, rule.points)
-    if (res.data.levelUp) {
-      triggerLevelUp(detailStudent.value.name, res.data.petLevel, detailStudent.value.pet_type || '', res.data.petLevel - 1)
+    if (res?.levelUp) {
+      triggerLevelUp(detailStudent.value.name, res.petLevel, detailStudent.value.pet_type || '', res.petLevel - 1)
     }
     const newTotalPoints = detailStudent.value.total_points + rule.points
-    if (res.data.died) {
+    if (res?.died) {
       triggerPetStatusAnimation('death', detailStudent.value.name, detailStudent.value.pet_type || '', detailStudent.value.pet_level || 1, 'injured', 'dead', newTotalPoints)
-    } else if (res.data.injured) {
+    } else if (res?.injured) {
       triggerPetStatusAnimation('injured', detailStudent.value.name, detailStudent.value.pet_type || '', detailStudent.value.pet_level || 1, 'alive', 'injured', newTotalPoints)
-    } else if (res.data.revived) {
+    } else if (res?.revived) {
       triggerPetStatusAnimation('revive', detailStudent.value.name, detailStudent.value.pet_type || '', detailStudent.value.pet_level || 1, 'dead', 'alive', newTotalPoints)
-    } else if (res.data.healed && !res.data.revived) {
+    } else if (res?.healed && !res.revived) {
       triggerPetStatusAnimation('heal', detailStudent.value.name, detailStudent.value.pet_type || '', detailStudent.value.pet_level || 1, 'injured', 'alive', newTotalPoints)
     }
-    await loadStudents()
     closeDetailPanel()
   } catch (error) {
     toast.error('评价失败')
@@ -407,17 +316,6 @@ function toggleStudentSelect(studentId: string) {
   selectedStudents.value = newSet
 }
 
-function cancelDeleteMode() {
-  showDeleteStudentMode.value = false
-  deleteStudentList.value = []
-}
-
-function toggleDeleteStudent(studentId: string) {
-  const index = deleteStudentList.value.indexOf(studentId)
-  if (index > -1) deleteStudentList.value.splice(index, 1)
-  else deleteStudentList.value.push(studentId)
-}
-
 // 记录
 async function loadEvaluationRecords() {
   if (!currentClass.value) return
@@ -436,13 +334,9 @@ async function handleUndoLastEvaluation(recordId?: string) {
     type: 'warning',
     onConfirm: async () => {
       try {
-        let res
-        if (recordId) res = await api.delete(`/evaluations/${recordId}`)
-        else res = await api.delete(`/evaluations/latest?classId=${currentClass.value!.id}`)
-        if (res.data.success) {
-          toast.success(`已撤回：${res.data.undone.points > 0 ? '+' : ''}${res.data.undone.points}分`)
-          localStorage.setItem('pet-garden-data-version', Date.now().toString())
-          await loadStudents()
+        const res = await undoEvaluation(recordId)
+        if (res?.success) {
+          toast.success(`已撤回：${res.undone.points > 0 ? '+' : ''}${res.undone.points}分`)
           await loadEvaluationRecords()
         }
       } catch (error) {
@@ -451,15 +345,6 @@ async function handleUndoLastEvaluation(recordId?: string) {
     }
   })
 }
-
-// 监听班级变化，重新加载学生
-watch(currentClass, (newClass) => {
-  if (newClass) {
-    loadStudents()
-  } else {
-    students.value = []
-  }
-})
 
 // 监听登录弹窗信号
 function checkShowLogin() {
@@ -477,20 +362,15 @@ function handleStorageEvent(e: StorageEvent) {
 }
 
 onMounted(async () => {
-  isLoading.value = true
   try {
     await loadClasses()
     await loadRules()
     await loadTags()
-    if (currentClass.value) {
-      await loadStudents()
-    }
-    lastDataVersion.value = getDataVersion()
+    await loadStudents()
     
     checkShowLogin()
     window.addEventListener('storage', handleStorageEvent)
   } finally {
-    isLoading.value = false
     nextTick(() => { isLoaded.value = true })
   }
 })
@@ -498,11 +378,7 @@ onMounted(async () => {
 onActivated(() => {
   checkShowLogin()
   syncCurrentClass()
-  const currentVersion = getDataVersion()
-  if (currentVersion > lastDataVersion.value) {
-    lastDataVersion.value = currentVersion
-    loadStudents()
-  }
+  loadStudents()
   loadRules()
   loadTags()
 })
@@ -621,10 +497,8 @@ onUnmounted(() => {
             :key="student.id"
             :student="student"
             :is-selected="batchMode && selectedStudents.has(student.id)"
-            :is-delete-mode="showDeleteStudentMode"
-            :is-delete-selected="showDeleteStudentMode && deleteStudentList.includes(student.id)"
             :score-animation="scoreAnimations.get(student.id)"
-            @click="batchMode ? toggleStudentSelect(student.id) : showDeleteStudentMode ? toggleDeleteStudent(student.id) : openDetailPanel(student)"
+            @click="batchMode ? toggleStudentSelect(student.id) : openDetailPanel(student)"
           />
         </div>
       </Transition>
@@ -635,14 +509,6 @@ onUnmounted(() => {
         :selected-count="selectedStudents.size"
         mode="batch"
         @evaluate="selectedStudent = null; showEvalModal = true"
-      />
-
-      <BatchActionBar
-        v-if="showDeleteStudentMode"
-        :selected-count="deleteStudentList.length"
-        mode="delete"
-        @confirm-delete="batchDeleteStudents"
-        @cancel="cancelDeleteMode"
       />
     </main>
 
