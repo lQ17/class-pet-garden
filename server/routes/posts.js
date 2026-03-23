@@ -71,6 +71,9 @@ router.post('/', authMiddleware, (req, res) => {
   if (!content || !content.trim()) {
     return res.status(400).json({ error: '内容不能为空' })
   }
+  if (content.length > 100) {
+    return res.status(400).json({ error: '内容不能超过100字' })
+  }
 
   const id = randomUUID()
   const now = Date.now()
@@ -89,13 +92,16 @@ router.post('/', authMiddleware, (req, res) => {
   })
 })
 
-// 删除帖子（仅作者本人）
+// 删除帖子（仅作者本人或管理员）
 router.delete('/:id', authMiddleware, (req, res) => {
   const post = db.prepare('SELECT id, user_id FROM posts WHERE id = ?').get(req.params.id)
   if (!post) {
     return res.status(404).json({ error: '帖子不存在' })
   }
-  if (post.user_id !== req.userId) {
+
+  // 检查权限：作者或管理员
+  const user = db.prepare('SELECT is_admin FROM users WHERE id = ?').get(req.userId)
+  if (post.user_id !== req.userId && !user?.is_admin) {
     return res.status(403).json({ error: '只能删除自己的帖子' })
   }
 
@@ -183,6 +189,9 @@ router.post('/:id/comments', authMiddleware, (req, res) => {
   if (!content || !content.trim()) {
     return res.status(400).json({ error: '评论内容不能为空' })
   }
+  if (content.length > 100) {
+    return res.status(400).json({ error: '评论不能超过100字' })
+  }
 
   const post = db.prepare('SELECT id FROM posts WHERE id = ?').get(req.params.id)
   if (!post) {
@@ -209,7 +218,7 @@ router.post('/:id/comments', authMiddleware, (req, res) => {
   })
 })
 
-// 删除评论（仅作者本人）
+// 删除评论（仅作者本人或管理员）
 router.delete('/:postId/comments/:commentId', authMiddleware, (req, res) => {
   const comment = db.prepare(`
     SELECT id, user_id, post_id FROM post_comments WHERE id = ? AND post_id = ?
@@ -218,7 +227,10 @@ router.delete('/:postId/comments/:commentId', authMiddleware, (req, res) => {
   if (!comment) {
     return res.status(404).json({ error: '评论不存在' })
   }
-  if (comment.user_id !== req.userId) {
+
+  // 检查权限：作者或管理员
+  const user = db.prepare('SELECT is_admin FROM users WHERE id = ?').get(req.userId)
+  if (comment.user_id !== req.userId && !user?.is_admin) {
     return res.status(403).json({ error: '只能删除自己的评论' })
   }
 

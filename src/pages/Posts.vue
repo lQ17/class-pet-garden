@@ -4,7 +4,7 @@ import { useAuth } from '@/composables/useAuth'
 import { useToast } from '@/composables/useToast'
 import PageLayout from '@/components/layout/PageLayout.vue'
 
-const { user, isGuest, api } = useAuth()
+const { user, isGuest, isAdmin, api } = useAuth()
 const toast = useToast()
 
 interface Post {
@@ -342,9 +342,13 @@ const canPost = computed(() => user.value && !isGuest.value)
             <textarea 
               v-model="newContent"
               placeholder="写下你的建议或想法..."
-              rows="5"
+              rows="3"
+              maxlength="100"
               class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none"
             ></textarea>
+            <div class="text-right text-xs mt-1" :class="newContent.length > 100 ? 'text-red-500' : 'text-gray-400'">
+              {{ newContent.length }}/100
+            </div>
           </div>
           <div class="flex gap-3">
             <button 
@@ -415,7 +419,7 @@ const canPost = computed(() => user.value && !isGuest.value)
                   </button>
                 </div>
                 <button 
-                  v-if="user?.id === selectedPost.author_id"
+                  v-if="user?.id === selectedPost.author_id || isAdmin"
                   @click="deletePost"
                   class="text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg text-sm transition-colors"
                 >
@@ -445,7 +449,7 @@ const canPost = computed(() => user.value && !isGuest.value)
                     <p class="text-gray-600 text-sm mt-1">{{ comment.content }}</p>
                   </div>
                   <button 
-                    v-if="user?.id === comment.author_id"
+                    v-if="user?.id === comment.author_id || isAdmin"
                     @click="deleteComment(comment.id)"
                     class="text-gray-400 hover:text-red-500 text-xs"
                   >
@@ -457,17 +461,23 @@ const canPost = computed(() => user.value && !isGuest.value)
               <!-- 评论输入 -->
               <div v-if="!isGuest" class="mt-6 pt-4 border-t border-gray-100">
                 <div class="flex gap-3">
-                  <input 
-                    v-model="newComment"
-                    type="text"
-                    placeholder="写下你的评论..."
-                    class="flex-1 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    @keyup.enter="addComment"
-                  />
+                  <div class="flex-1">
+                    <input 
+                      v-model="newComment"
+                      type="text"
+                      placeholder="写下你的评论..."
+                      maxlength="100"
+                      class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      @keyup.enter="addComment"
+                    />
+                    <div class="text-right text-xs mt-1" :class="newComment.length > 100 ? 'text-red-500' : 'text-gray-400'">
+                      {{ newComment.length }}/100
+                    </div>
+                  </div>
                   <button 
                     @click="addComment"
-                    :disabled="isSubmitting || !newComment.trim()"
-                    class="px-4 py-2 bg-orange-500 text-white rounded-xl font-medium hover:bg-orange-600 transition-colors disabled:opacity-50"
+                    :disabled="isSubmitting || !newComment.trim() || newComment.length > 100"
+                    class="px-4 py-2 bg-orange-500 text-white rounded-xl font-medium hover:bg-orange-600 transition-colors disabled:opacity-50 self-start"
                   >
                     发送
                   </button>
