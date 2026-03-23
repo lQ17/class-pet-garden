@@ -185,15 +185,17 @@ onMounted(() => {
 
     <!-- 第二行：导航 -->
     <div class="px-4 py-2 flex items-center border-t border-white/20 bg-white/10">
-      <nav class="flex items-center gap-1">
+      <nav class="flex items-center gap-1 flex-1">
         <router-link to="/" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all" :class="isActive('/') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'">🏠 首页</router-link>
         <router-link to="/ranking" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all" :class="isActive('/ranking') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'">🏆 排行</router-link>
         <router-link to="/records" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all" :class="isActive('/records') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'">📋 记录</router-link>
         <router-link to="/students" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all" :class="isActive('/students') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'">👥 学生</router-link>
         <router-link to="/preview" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all" :class="isActive('/preview') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'">📖 图鉴</router-link>
-        <router-link to="/posts" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all" :class="isActive('/posts') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'">💬 留言</router-link>
         <router-link to="/settings" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all" :class="isActive('/settings') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'">⚙️ 设置</router-link>
         <router-link v-if="isAdmin" to="/admin" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all" :class="isActive('/admin') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'">🔐 管理</router-link>
+      </nav>
+      <nav class="flex items-center">
+        <router-link to="/posts" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all" :class="isActive('/posts') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'">💬 留言</router-link>
       </nav>
     </div>
   </header>
