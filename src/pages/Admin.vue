@@ -87,9 +87,9 @@ const defaultWidth = 300
 
 function generateLinePath(data: number[], max: number): string {
   if (data.length === 0) return ''
-  const stepX = defaultWidth / Math.max(data.length - 1, 1)
+  const stepX = defaultWidth / data.length
   const points = data.map((val, i) => {
-    const x = i * stepX
+    const x = (i + 0.5) * stepX  // 在 flex 子元素中心
     const y = chartHeight - paddingY - (val / Math.max(max, 1)) * (chartHeight - paddingY * 2)
     return `${x},${y}`
   })
@@ -98,8 +98,11 @@ function generateLinePath(data: number[], max: number): string {
 
 function generateAreaPath(data: number[], max: number): string {
   if (data.length === 0) return ''
+  const stepX = defaultWidth / data.length
   const linePath = generateLinePath(data, max)
-  return `${linePath} L ${defaultWidth},${chartHeight - paddingY} L 0,${chartHeight - paddingY} Z`
+  const firstX = 0.5 * stepX
+  const lastX = (data.length - 0.5) * stepX
+  return `${linePath} L ${lastX},${chartHeight - paddingY} L ${firstX},${chartHeight - paddingY} Z`
 }
 
 // 删除相关
