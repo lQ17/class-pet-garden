@@ -346,7 +346,7 @@ const canPost = computed(() => user.value && !isGuest.value)
         </div>
         <div class="p-6 space-y-4">
           <div class="bg-amber-50 border border-amber-200 rounded-xl p-3">
-            <p class="text-sm text-amber-700">📢 帖子所有人可见，请注意保护个人信息，不要在内容中透露敏感信息。</p>
+            <p class="text-sm text-amber-700">📢 帖子所有人可见，请注意保护个人信息，不要在内容中透露敏感信息，不要散布不良言论。</p>
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">标题</label>

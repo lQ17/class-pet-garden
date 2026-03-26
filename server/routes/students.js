@@ -114,8 +114,8 @@ router.put('/:id/pet', authMiddleware, (req, res) => {
       .run(badgeId, req.params.id, student.pet_type, now)
   }
 
-  // Update pet type and reset level/exp
-  db.prepare('UPDATE students SET pet_type = ?, pet_level = 1, pet_exp = 0 WHERE id = ?')
+  // Update pet type (keep level and exp)
+  db.prepare('UPDATE students SET pet_type = ? WHERE id = ?')
     .run(petType, req.params.id)
 
   res.json({ success: true })
