@@ -12,6 +12,7 @@ router.get('/', (req, res) => {
       p.id, p.title, p.content, p.created_at, p.updated_at,
       u.username as author_name,
       u.id as author_id,
+      u.is_admin as author_is_admin,
       (SELECT count(*) FROM post_votes WHERE post_id = p.id AND vote_type = 1) as upvotes,
       (SELECT count(*) FROM post_votes WHERE post_id = p.id AND vote_type = -1) as downvotes,
       (SELECT count(*) FROM post_comments WHERE post_id = p.id) as comment_count
@@ -30,6 +31,7 @@ router.get('/:id', (req, res) => {
       p.id, p.title, p.content, p.created_at, p.updated_at,
       u.username as author_name,
       u.id as author_id,
+      u.is_admin as author_is_admin,
       (SELECT count(*) FROM post_votes WHERE post_id = p.id AND vote_type = 1) as upvotes,
       (SELECT count(*) FROM post_votes WHERE post_id = p.id AND vote_type = -1) as downvotes
     FROM posts p
@@ -46,7 +48,8 @@ router.get('/:id', (req, res) => {
     SELECT 
       c.id, c.content, c.created_at,
       u.username as author_name,
-      u.id as author_id
+      u.id as author_id,
+      u.is_admin as author_is_admin
     FROM post_comments c
     JOIN users u ON c.user_id = u.id
     WHERE c.post_id = ?
@@ -206,15 +209,16 @@ router.post('/:id/comments', authMiddleware, (req, res) => {
     VALUES (?, ?, ?, ?, ?)
   `).run(id, req.params.id, req.userId, content.trim(), now)
 
-  // 获取用户名
-  const author = db.prepare('SELECT username FROM users WHERE id = ?').get(req.userId)
+  // 获取用户信息
+  const author = db.prepare('SELECT username, is_admin FROM users WHERE id = ?').get(req.userId)
 
   res.json({ 
     id, 
     content: content.trim(),
     created_at: now,
     author_name: author.username,
-    author_id: req.userId
+    author_id: req.userId,
+    author_is_admin: author.is_admin
   })
 })
 

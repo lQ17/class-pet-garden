@@ -18,6 +18,7 @@ interface Post {
   updated_at: number
   author_name: string
   author_id: string
+  author_is_admin: boolean
   upvotes: number
   downvotes: number
   comment_count: number
@@ -30,6 +31,7 @@ interface Comment {
   created_at: number
   author_name: string
   author_id: string
+  author_is_admin: boolean
 }
 
 const posts = ref<Post[]>([])
@@ -95,6 +97,10 @@ function formatDate(timestamp: number) {
   if (hours < 24) return `${hours}小时前`
   if (days < 7) return `${days}天前`
   return new Date(timestamp).toLocaleDateString('zh-CN')
+}
+
+function showAuthorName(authorName: string, isAdmin: boolean): string {
+  return isAdmin ? '作者' : authorName
 }
 
 function openCreateModal() {
@@ -192,7 +198,8 @@ async function addComment() {
       content: res.data.content,
       created_at: res.data.created_at,
       author_name: res.data.author_name,
-      author_id: res.data.author_id
+      author_id: res.data.author_id,
+      author_is_admin: res.data.author_is_admin
     })
     newComment.value = ''
     // 更新评论数
@@ -300,7 +307,7 @@ const canPost = computed(() => user.value && !isGuest.value)
               <h3 class="font-medium text-gray-800 truncate">{{ post.title }}</h3>
               <p class="text-sm text-gray-500 line-clamp-2 mt-1">{{ post.content }}</p>
               <div class="flex items-center gap-4 mt-2 text-sm text-gray-400">
-                <span>{{ post.author_name }}</span>
+                <span :class="post.author_is_admin ? 'text-orange-500 font-medium' : ''">{{ showAuthorName(post.author_name, post.author_is_admin) }}</span>
                 <span>{{ formatDate(post.created_at) }}</span>
               </div>
             </div>
@@ -400,7 +407,7 @@ const canPost = computed(() => user.value && !isGuest.value)
           <div class="bg-gradient-to-r from-orange-500 to-amber-500 px-6 py-4">
             <h3 class="text-xl font-bold text-white">{{ selectedPost.title }}</h3>
             <div class="flex items-center gap-4 mt-2 text-white/80 text-sm">
-              <span>{{ selectedPost.author_name }}</span>
+              <span :class="selectedPost.author_is_admin ? 'text-white font-bold' : ''">{{ showAuthorName(selectedPost.author_name, selectedPost.author_is_admin) }}</span>
               <span>{{ formatDate(selectedPost.created_at) }}</span>
             </div>
           </div>
@@ -463,7 +470,7 @@ const canPost = computed(() => user.value && !isGuest.value)
                   </div>
                   <div class="flex-1">
                     <div class="flex items-center gap-2">
-                      <span class="font-medium text-gray-700 text-sm">{{ comment.author_name }}</span>
+                      <span :class="comment.author_is_admin ? 'text-orange-500 font-medium' : 'font-medium text-gray-700'" class="text-sm">{{ showAuthorName(comment.author_name, comment.author_is_admin) }}</span>
                       <span class="text-xs text-gray-400">{{ formatDate(comment.created_at) }}</span>
                     </div>
                     <p class="text-gray-600 text-sm mt-1">{{ comment.content }}</p>
