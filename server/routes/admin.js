@@ -55,12 +55,12 @@ router.get('/teachers', authMiddleware, adminMiddleware, (req, res) => {
     }
   })
 
-  // 按最后一次评价时间排序，没评价过的（null）排在最前面，然后时间早的排前面
+  // 按最后一次评价时间排序，最近评价的排前面，没评价过的排最后
   result.sort((a, b) => {
     if (a.lastEvalTime === null && b.lastEvalTime === null) return 0
-    if (a.lastEvalTime === null) return -1
-    if (b.lastEvalTime === null) return 1
-    return a.lastEvalTime - b.lastEvalTime
+    if (a.lastEvalTime === null) return 1
+    if (b.lastEvalTime === null) return -1
+    return b.lastEvalTime - a.lastEvalTime
   })
 
   res.json({ teachers: result })
