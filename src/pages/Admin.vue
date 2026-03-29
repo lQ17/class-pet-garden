@@ -10,7 +10,7 @@ const toast = useToast()
 const router = useRouter()
 
 interface TeacherClass { id: string; name: string; student_count: number; eval_count: number }
-interface Teacher { id: string; username: string; isAdmin: boolean; createdAt: number; classCount: number; totalStudents: number; totalEvals: number; lastEvalTime: number | null; todayEvals: number; classes: TeacherClass[] }
+interface Teacher { id: string; username: string; isAdmin: boolean; isGuest: boolean; createdAt: number; classCount: number; totalStudents: number; totalEvals: number; lastEvalTime: number | null; todayEvals: number; classes: TeacherClass[] }
 interface Stats { teachers: number; classes: number; students: number; evaluations: number; todayEvaluations: number }
 interface DailyStat { date: string; newUsers: number; newClasses: number; newStudents: number; evaluations: number }
 
@@ -208,7 +208,7 @@ async function executeDelete() {
         <div v-if="activeTab === 'teachers'">
           <div v-if="teachers.length === 0" class="p-8 text-center text-gray-400">暂无老师数据</div>
           <div v-else class="divide-y divide-gray-100">
-            <div v-for="teacher in teachers" :key="teacher.id" class="hover:bg-gray-50" :class="isInactive(teacher) && !teacher.isAdmin ? 'bg-red-50/30' : ''">
+            <div v-for="teacher in teachers" :key="teacher.id" class="hover:bg-gray-50" :class="isInactive(teacher) && !teacher.isAdmin && !teacher.isGuest ? 'bg-red-50/30' : ''">
               <div class="p-4 flex items-center justify-between cursor-pointer" @click="toggleTeacher(teacher.id)">
                 <div class="flex items-center gap-3">
                   <div class="w-10 h-10 rounded-full bg-gradient-to-r from-orange-400 to-pink-500 flex items-center justify-center text-white font-bold">
@@ -218,9 +218,10 @@ async function executeDelete() {
                     <div class="font-medium text-gray-800 flex items-center gap-2">
                       {{ teacher.username }}
                       <span v-if="teacher.isAdmin" class="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full">管理员</span>
-                      <span v-if="isInactive(teacher) && !teacher.isAdmin" class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">⚠️ 不活跃</span>
+                      <span v-if="teacher.isGuest" class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">游客</span>
+                      <span v-if="isInactive(teacher) && !teacher.isAdmin && !teacher.isGuest" class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">⚠️ 不活跃</span>
                       <button 
-                        v-if="!teacher.isAdmin"
+                        v-if="!teacher.isAdmin && !teacher.isGuest"
                         @click.stop="confirmDelete(teacher)"
                         class="ml-1 px-2 py-0.5 text-xs text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                         title="删除用户"

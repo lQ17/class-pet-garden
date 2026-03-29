@@ -13,12 +13,12 @@ function adminMiddleware(req, res, next) {
   next()
 }
 
-// 获取所有老师及其班级统计（不包括管理员）
+// 获取所有老师及游客统计（不包括管理员）
 router.get('/teachers', authMiddleware, adminMiddleware, (req, res) => {
   const teachers = db.prepare(`
-    SELECT id, username, created_at, is_admin
+    SELECT id, username, created_at, is_admin, is_guest
     FROM users
-    WHERE is_guest = 0 AND is_admin = 0
+    WHERE is_admin = 0
     ORDER BY created_at DESC
   `).all()
 
@@ -54,6 +54,7 @@ router.get('/teachers', authMiddleware, adminMiddleware, (req, res) => {
       id: teacher.id,
       username: teacher.username,
       isAdmin: !!teacher.is_admin,
+      isGuest: !!teacher.is_guest,
       createdAt: teacher.created_at,
       classCount: classes.length,
       totalStudents,
@@ -111,14 +112,19 @@ router.delete('/users/:id', authMiddleware, adminMiddleware, (req, res) => {
   }
 
   // 检查用户是否存在
-  const user = db.prepare('SELECT id, username, is_admin FROM users WHERE id = ?').get(userId)
+  const user = db.prepare('SELECT id, username, is_admin, is_guest FROM users WHERE id = ?').get(userId)
   if (!user) {
     return res.status(404).json({ error: '用户不存在' })
   }
 
-  // 不能删除管理员（除非自己是超级管理员，但目前没有这个角色）
+  // 不能删除管理员
   if (user.is_admin) {
     return res.status(403).json({ error: '不能删除管理员' })
+  }
+
+  // 不能删除游客
+  if (user.is_guest) {
+    return res.status(403).json({ error: '不能删除游客' })
   }
 
   try {
