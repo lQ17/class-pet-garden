@@ -18,9 +18,9 @@ router.post('/', authMiddleware, (req, res) => {
 
   const id = uuidv4()
   const now = Date.now()
-  db.prepare('INSERT INTO students (id, class_id, name, student_no, total_points, pet_level, pet_exp, created_at) VALUES (?, ?, ?, ?, 0, 1, 0, ?)')
+  db.prepare('INSERT INTO students (id, class_id, name, student_no, total_points, usable_points, pet_level, pet_exp, created_at) VALUES (?, ?, ?, ?, 0, 0, 1, 0, ?)')
     .run(id, classId, name, studentNo || null, now)
-  res.json({ id, class_id: classId, name, student_no: studentNo || null, total_points: 0, pet_level: 1, pet_exp: 0, created_at: now })
+  res.json({ id, class_id: classId, name, student_no: studentNo || null, total_points: 0, usable_points: 0, pet_level: 1, pet_exp: 0, created_at: now })
 })
 
 // 更新学生
@@ -63,7 +63,7 @@ router.post('/import', authMiddleware, (req, res) => {
   }
 
   const now = Date.now()
-  const insertStmt = db.prepare('INSERT INTO students (id, class_id, name, student_no, total_points, pet_level, pet_exp, created_at) VALUES (?, ?, ?, ?, 0, 1, 0, ?)')
+  const insertStmt = db.prepare('INSERT INTO students (id, class_id, name, student_no, total_points, usable_points, pet_level, pet_exp, created_at) VALUES (?, ?, ?, ?, 0, 0, 1, 0, ?)')
 
   let imported = 0
   for (const student of students) {

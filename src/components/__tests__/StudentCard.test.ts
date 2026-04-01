@@ -16,6 +16,7 @@ describe('StudentCard', () => {
     name: '张三',
     student_no: '001',
     total_points: 100,
+    usable_points: 80,
     pet_type: 'cat',
     pet_level: 3,
     pet_exp: 100

@@ -7,7 +7,7 @@ const router = Router()
 // 导出备份
 router.get('/', authMiddleware, (req, res) => {
   const backup = {
-    version: '1.0.0',
+    version: '2.0.0',
     exportedAt: new Date().toISOString(),
     classes: db.prepare('SELECT * FROM classes WHERE user_id = ?').all(req.userId),
     students: db.prepare(`
@@ -27,6 +27,12 @@ router.get('/', authMiddleware, (req, res) => {
       JOIN classes c ON s.class_id = c.id
       WHERE c.user_id = ?
     `).all(req.userId),
+    products: db.prepare('SELECT * FROM products WHERE user_id = ?').all(req.userId),
+    redemptions: db.prepare(`
+      SELECT rr.* FROM redemption_records rr
+      JOIN users u ON rr.user_id = u.id
+      WHERE u.id = ?
+    `).all(req.userId),
     settings: db.prepare('SELECT * FROM settings').all()
   }
   res.setHeader('Content-Disposition', `attachment; filename="pet-garden-backup-${Date.now()}.json"`)
@@ -35,7 +41,7 @@ router.get('/', authMiddleware, (req, res) => {
 
 // 导入备份
 router.post('/', authMiddleware, (req, res) => {
-  const { classes, students, rules, records, badges, settings } = req.body
+  const { classes, students, rules, records, badges, products, redemptions, settings } = req.body
 
   if (!classes || !students) {
     return res.status(400).json({ error: 'Invalid backup data' })
@@ -43,6 +49,8 @@ router.post('/', authMiddleware, (req, res) => {
 
   try {
     // Clear existing data for current user
+    db.prepare('DELETE FROM redemption_records WHERE user_id = ?').run(req.userId)
+    db.prepare('DELETE FROM products WHERE user_id = ?').run(req.userId)
     db.prepare('DELETE FROM evaluation_records WHERE class_id IN (SELECT id FROM classes WHERE user_id = ?)').run(req.userId)
     db.prepare('DELETE FROM badges WHERE student_id IN (SELECT s.id FROM students s JOIN classes c ON s.class_id = c.id WHERE c.user_id = ?)').run(req.userId)
     db.prepare('DELETE FROM students WHERE class_id IN (SELECT id FROM classes WHERE user_id = ?)').run(req.userId)
@@ -54,10 +62,22 @@ router.post('/', authMiddleware, (req, res) => {
       insertClass.run(c.id, req.userId, c.name, c.created_at, c.updated_at)
     }
 
-    // Restore students
-    const insertStudent = db.prepare('INSERT INTO students (id, class_id, name, student_no, total_points, pet_type, pet_level, pet_exp, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    // Restore students (包含 usable_points)
+    const insertStudent = db.prepare('INSERT INTO students (id, class_id, name, student_no, total_points, usable_points, pet_type, pet_level, pet_exp, pet_status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
     for (const s of students) {
-      insertStudent.run(s.id, s.class_id, s.name, s.student_no, s.total_points, s.pet_type, s.pet_level, s.pet_exp, s.created_at)
+      insertStudent.run(
+        s.id, 
+        s.class_id, 
+        s.name, 
+        s.student_no, 
+        s.total_points, 
+        s.usable_points || 0,
+        s.pet_type, 
+        s.pet_level, 
+        s.pet_exp, 
+        s.pet_status || 'alive',
+        s.created_at
+      )
     }
 
     // Restore custom rules
@@ -81,6 +101,26 @@ router.post('/', authMiddleware, (req, res) => {
       const insertBadge = db.prepare('INSERT INTO badges (id, student_id, pet_type, earned_at) VALUES (?, ?, ?, ?)')
       for (const b of badges) {
         insertBadge.run(b.id, b.student_id, b.pet_type, b.earned_at)
+      }
+    }
+
+    // Restore products
+    if (products) {
+      const insertProduct = db.prepare('INSERT INTO products (id, user_id, name, description, price, stock, image_url, is_enabled, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      for (const p of products) {
+        insertProduct.run(
+          p.id, req.userId, p.name, p.description, p.price, 
+          p.stock, p.image_url, p.is_enabled, p.sort_order, 
+          p.created_at, p.updated_at
+        )
+      }
+    }
+
+    // Restore redemptions
+    if (redemptions) {
+      const insertRedemption = db.prepare('INSERT INTO redemption_records (id, user_id, student_id, product_id, product_name, price, redeemed_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      for (const r of redemptions) {
+        insertRedemption.run(r.id, req.userId, r.student_id, r.product_id, r.product_name, r.price, r.redeemed_at)
       }
     }
 

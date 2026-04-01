@@ -17,7 +17,7 @@ const { api } = useAuth();
 const toast = useToast();
 const { confirmDialog, showConfirm, closeConfirm } = useConfirm();
 
-const activeTab = ref<"rules" | "tags" | "revival">("rules");
+const activeTab = ref<"rules" | "tags" | "revival" | "backup">("rules");
 const isLoading = ref(true);
 const rules = ref<Rule[]>([]);
 const tags = ref<Tag[]>([]);
@@ -60,6 +60,9 @@ const newTaskDesc = ref("");
 const editingTask = ref<{ id: string; name: string; description?: string } | null>(null);
 const editTaskName = ref("");
 const editTaskDesc = ref("");
+
+// 备份文件引用
+const backupFileInput = ref<HTMLInputElement | null>(null);
 
 const rulesByCategory = computed(() => {
   const grouped: Record<string, Rule[]> = {};
@@ -327,6 +330,62 @@ async function deleteCustomTask(id: string) {
   });
 }
 
+// ===== 备份恢复相关函数 =====
+async function exportBackup() {
+  try {
+    const res = await api.get("/backup", { responseType: 'blob' });
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `pet-garden-backup-${Date.now()}.json`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("备份导出成功！");
+  } catch (e) {
+    console.error("导出备份失败:", e);
+    toast.error("导出备份失败");
+  }
+}
+
+function triggerFileInput() {
+  backupFileInput.value?.click();
+}
+
+async function handleFileChange(event: Event) {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+  if (!file) return;
+
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    
+    showConfirm({
+      title: "恢复数据",
+      message: "确定要恢复备份数据吗？当前数据将被覆盖！",
+      confirmText: "确认恢复",
+      type: "danger",
+      onConfirm: async () => {
+        try {
+          await api.post("/backup", data);
+          toast.success("数据恢复成功！请刷新页面。");
+          window.location.reload();
+        } catch (e: any) {
+          toast.error(e.response?.data?.error || "恢复失败");
+        }
+      },
+    });
+  } catch (e) {
+    console.error("解析备份文件失败:", e);
+    toast.error("备份文件格式错误");
+  }
+  
+  if (backupFileInput.value) {
+    backupFileInput.value.value = '';
+  }
+}
+
 onMounted(async () => {
   isLoading.value = true;
   try {
@@ -349,7 +408,7 @@ onMounted(async () => {
         </div>
       </div>
       <template v-else>
-        <div class="flex gap-2 mb-6">
+        <div class="flex gap-2 mb-6 flex-wrap">
           <button
             @click="activeTab = 'rules'"
             class="px-5 py-2.5 rounded-xl font-medium transition-all"
@@ -382,6 +441,17 @@ onMounted(async () => {
             "
           >
             🔄 复活任务
+          </button>
+          <button
+            @click="activeTab = 'backup'"
+            class="px-5 py-2.5 rounded-xl font-medium transition-all"
+            :class="
+              activeTab === 'backup'
+                ? 'bg-white shadow-lg text-orange-600'
+                : 'bg-white/50 text-gray-500 hover:bg-white/70'
+            "
+          >
+            💾 数据备份
           </button>
         </div>
 
@@ -793,6 +863,48 @@ onMounted(async () => {
               </div>
             </div>
           </template>
+        </template>
+
+        <!-- 备份恢复 -->
+        <template v-if="activeTab === 'backup'">
+          <div class="bg-white rounded-2xl p-6 shadow-lg">
+            <h3 class="font-bold text-lg mb-6">💾 数据备份与恢复</h3>
+            
+            <!-- 导出备份 -->
+            <div class="mb-8 pb-8 border-b border-gray-100">
+              <h4 class="font-medium text-gray-800 mb-3">📤 导出备份</h4>
+              <p class="text-sm text-gray-500 mb-4">
+                将当前所有数据（班级、学生、评价、商品、兑换记录等）导出为 JSON 备份文件
+              </p>
+              <button
+                @click="exportBackup"
+                class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-6 py-2.5 rounded-xl font-bold hover:shadow-lg transition-all"
+              >
+                📥 导出备份
+              </button>
+            </div>
+            
+            <!-- 导入备份 -->
+            <div>
+              <h4 class="font-medium text-gray-800 mb-3">📥 恢复备份</h4>
+              <p class="text-sm text-gray-500 mb-4">
+                从备份文件恢复数据。<span class="text-red-500 font-medium">注意：当前数据将被完全覆盖！</span>
+              </p>
+              <input
+                ref="backupFileInput"
+                type="file"
+                accept=".json"
+                class="hidden"
+                @change="handleFileChange"
+              />
+              <button
+                @click="triggerFileInput"
+                class="bg-gradient-to-r from-orange-400 to-pink-500 text-white px-6 py-2.5 rounded-xl font-bold hover:shadow-lg transition-all"
+              >
+                📤 选择备份文件并恢复
+              </button>
+            </div>
+          </div>
         </template>
       </template>
     </div>

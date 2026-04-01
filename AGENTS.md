@@ -195,8 +195,12 @@ app.get('/api/classes', (req, res) => {
 | `/api/rules` | GET, POST | 获取/添加评价规则 |
 | `/api/evaluations` | GET, POST | 评价记录 |
 | `/api/evaluations/latest` | DELETE | 撤销最近评价 |
+| `/api/shop/products` | GET, POST | 获取/添加商品 |
+| `/api/shop/products/:id` | PUT, DELETE | 更新/删除商品 |
+| `/api/shop/redemptions` | GET | 获取兑换记录 |
+| `/api/shop/redeem` | POST | 兑换商品 |
 | `/api/backup` | GET | 导出 JSON 备份 |
-| `/api/restore` | POST | 从备份恢复 |
+| `/api/backup` | POST | 从备份恢复 |
 
 ---
 
@@ -210,12 +214,22 @@ app.get('/api/classes', (req, res) => {
 
 **积分系统：**
 - 分类：学习、行为、健康、其他
+- **累计积分** (`total_points`)：用于宠物升级、排行展示
+- **可用积分** (`usable_points`)：用于商城礼品兑换
 - 正数 = 加分，负数 = 扣分
-- 积分贡献给宠物经验值
+- 加分时同时增加两种积分，扣分时只扣累计积分
+- 撤回加分时同时减去可用积分（保证可用积分不为负）
+
+**商城系统：**
+- 商品管理：增删改查、上架/下架、库存管理
+- 商品兑换：选择学生、检查积分、扣减库存
+- 兑换记录：查看所有兑换历史
+- 支持无限库存（stock = -1）
 
 **数据持久化：**
 - SQLite 数据库位于 `server/pet-garden.db`
 - 所有数据在单个 `.db` 文件中（易于备份/恢复）
+- 备份包含：班级、学生、评价、商品、兑换记录等所有数据
 
 ---
 

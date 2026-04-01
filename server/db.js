@@ -54,6 +54,12 @@ export function initDb() {
       FOREIGN KEY (student_id) REFERENCES students(id)
     );
 
+    -- 设置表
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+
     -- 评价规则表
     CREATE TABLE IF NOT EXISTS evaluation_rules (
       id TEXT PRIMARY KEY,
@@ -163,6 +169,36 @@ export function initDb() {
       revived_at INTEGER,
       FOREIGN KEY (student_id) REFERENCES students(id)
     );
+
+    -- 商品表（用户隔离）
+    CREATE TABLE IF NOT EXISTS products (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      price INTEGER NOT NULL,
+      stock INTEGER DEFAULT -1,  -- -1 表示无限库存
+      image_url TEXT,
+      is_enabled INTEGER DEFAULT 1,
+      sort_order INTEGER DEFAULT 0,
+      created_at INTEGER,
+      updated_at INTEGER,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+
+    -- 兑换记录表
+    CREATE TABLE IF NOT EXISTS redemption_records (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      student_id TEXT NOT NULL,
+      product_id TEXT NOT NULL,
+      product_name TEXT NOT NULL,
+      price INTEGER NOT NULL,
+      redeemed_at INTEGER,
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      FOREIGN KEY (student_id) REFERENCES students(id),
+      FOREIGN KEY (product_id) REFERENCES products(id)
+    );
   `)
 
   // 迁移：添加 pet_status 字段（如果不存在）
@@ -196,6 +232,13 @@ export function initDb() {
   // 迁移：添加 revival_enabled 到 users（如果不存在）
   try {
     db.exec(`ALTER TABLE users ADD COLUMN revival_enabled INTEGER DEFAULT 0`)
+  } catch (e) {
+    // 字段已存在，忽略错误
+  }
+
+  // 迁移：添加 usable_points 到 students（如果不存在）
+  try {
+    db.exec(`ALTER TABLE students ADD COLUMN usable_points INTEGER DEFAULT 0`)
   } catch (e) {
     // 字段已存在，忽略错误
   }

@@ -235,7 +235,7 @@ function getHealthProgress(student: Student): number {
       </div>
 
       <!-- 成长值 + 积分 -->
-      <div class="flex items-center justify-between text-sm mb-3">
+      <div class="flex items-center justify-between text-sm mb-2">
         <span class="text-gray-500 flex items-center gap-1">
           <!-- 阵亡状态 -->
           <template v-if="getPetStatus(student) === 'dead'">
@@ -259,6 +259,14 @@ function getHealthProgress(student: Student): number {
         <span class="font-bold text-lg flex items-center gap-1">
           <span class="text-yellow-400">⭐</span>
           <span :class="student.total_points < 0 ? 'text-red-500' : 'text-orange-500'">{{ student.total_points }}</span>
+        </span>
+      </div>
+      <!-- 可用积分 -->
+      <div class="flex items-center justify-between text-xs mb-3">
+        <span></span>
+        <span class="text-green-500 font-medium flex items-center gap-1">
+          <span>💰</span>
+          可用: {{ student.usable_points || 0 }}
         </span>
       </div>
 
