@@ -3,10 +3,10 @@
 # 班级宠物花园部署脚本
 # 将构建后的 dist 文件夹部署到服务器
 
-PROJECT_DIR="/root/.openclaw/workspace/projects/class-pet-garden"
+PROJECT_DIR="/root/class-pet-garden"
 SERVER_HOST="8.147.56.12"
 SERVER_USER="root"
-SERVER_PATH="/var/www/html/pet-garden"
+SERVER_PATH="/var/www/pet-garden"
 
 echo "🚀 开始部署班级宠物花园..."
 
