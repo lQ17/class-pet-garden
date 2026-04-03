@@ -18,9 +18,9 @@ router.post('/', authMiddleware, (req, res) => {
 
   const id = uuidv4()
   const now = Date.now()
-  db.prepare('INSERT INTO students (id, class_id, name, student_no, total_points, usable_points, pet_level, pet_exp, created_at) VALUES (?, ?, ?, ?, 0, 0, 1, 0, ?)')
-    .run(id, classId, name, studentNo || null, now)
-  res.json({ id, class_id: classId, name, student_no: studentNo || null, total_points: 0, usable_points: 0, pet_level: 1, pet_exp: 0, created_at: now })
+  db.prepare('INSERT INTO students (id, class_id, name, student_no, total_points, usable_points, pet_level, pet_exp, pet_status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(id, classId, name, studentNo || null, 0, 0, 1, 0, 'alive', now)
+  res.json({ id, class_id: classId, name, student_no: studentNo || null, total_points: 0, usable_points: 0, pet_level: 1, pet_exp: 0, pet_status: 'alive', created_at: now })
 })
 
 // 更新学生
@@ -43,8 +43,10 @@ router.delete('/:id', authMiddleware, (req, res) => {
     return res.status(404).json({ error: '学生不存在或无权访问' })
   }
 
-  // 先删除相关的评价记录
+  // 先删除相关的所有记录
   db.prepare('DELETE FROM evaluation_records WHERE student_id = ?').run(req.params.id)
+  db.prepare('DELETE FROM badges WHERE student_id = ?').run(req.params.id)
+  db.prepare('DELETE FROM redemption_records WHERE student_id = ?').run(req.params.id)
   // 再删除学生
   db.prepare('DELETE FROM students WHERE id = ?').run(req.params.id)
   res.json({ success: true })
@@ -63,13 +65,13 @@ router.post('/import', authMiddleware, (req, res) => {
   }
 
   const now = Date.now()
-  const insertStmt = db.prepare('INSERT INTO students (id, class_id, name, student_no, total_points, usable_points, pet_level, pet_exp, created_at) VALUES (?, ?, ?, ?, 0, 0, 1, 0, ?)')
+  const insertStmt = db.prepare('INSERT INTO students (id, class_id, name, student_no, total_points, usable_points, pet_level, pet_exp, pet_status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
 
   let imported = 0
   for (const student of students) {
     if (student.name && student.name.trim()) {
       const id = uuidv4()
-      insertStmt.run(id, classId, student.name.trim(), student.studentNo?.trim() || null, now)
+      insertStmt.run(id, classId, student.name.trim(), student.studentNo?.trim() || null, 0, 0, 1, 0, 'alive', now)
       imported++
     }
   }
@@ -89,9 +91,11 @@ router.post('/batch-delete', authMiddleware, (req, res) => {
     return res.status(403).json({ error: '部分学生不存在或无权删除' })
   }
 
-  // 删除评价记录和学生
+  // 删除所有相关记录和学生
   const placeholders = ids.map(() => '?').join(',')
   db.prepare(`DELETE FROM evaluation_records WHERE student_id IN (${placeholders})`).run(...ids)
+  db.prepare(`DELETE FROM badges WHERE student_id IN (${placeholders})`).run(...ids)
+  db.prepare(`DELETE FROM redemption_records WHERE student_id IN (${placeholders})`).run(...ids)
   db.prepare(`DELETE FROM students WHERE id IN (${placeholders})`).run(...ids)
   
   res.json({ success: true, deleted: ids.length })

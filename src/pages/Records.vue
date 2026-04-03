@@ -55,7 +55,7 @@ async function loadRecords() {
   isLoading.value = true
   try {
     const res = await api.get(`/evaluations?classId=${currentClass.value.id}&page=${page.value}&pageSize=${pageSize}`)
-    records.value = (res.data.records || []).reverse()
+    records.value = res.data.records || []
     totalRecords.value = res.data.total
   } catch (error) {
     console.error('加载记录失败:', error)

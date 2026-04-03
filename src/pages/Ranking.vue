@@ -1,20 +1,79 @@
 <script setup lang="ts">
-import { computed, onActivated } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import type { Student } from '@/types'
 import { useClasses } from '@/composables/useClasses'
-import { useStudents } from '@/composables/useStudents'
+import { useAuth } from '@/composables/useAuth'
 import { getPetLevelImage } from '@/data/pets'
 import PageLayout from '@/components/layout/PageLayout.vue'
 
-const { currentClass } = useClasses()
-const { students, isLoading, loadStudents, getDisplayLevel } = useStudents()
+const { classes, currentClass } = useClasses()
+const { api } = useAuth()
 
-// 按积分排序的排行榜
-const ranking = computed(() => {
-  return [...students.value].sort((a, b) => b.total_points - a.total_points)
-})
+const ranking = ref<(Student & { rank: number; isTop3: boolean })[]>([])
+const isLoading = ref(true)
 
-// 前五名（按领奖台顺序：第4、第2、第1、第3、第5）
+// 时间段相关
+const RANKING_PREFERENCE_KEY = 'ranking-time-preference'
+const periodMode = ref<'all' | 'custom'>('all')
+const customStartDate = ref('')
+const customEndDate = ref('')
+
+async function loadRanking() {
+  if (!currentClass.value) return
+  
+  isLoading.value = true
+  try {
+    const params: any = {}
+    if (periodMode.value === 'custom' && customStartDate.value && customEndDate.value) {
+      const startDate = new Date(customStartDate.value)
+      const endDate = new Date(customEndDate.value)
+      params.startDate = startDate.getTime()
+      params.endDate = endDate.getTime()
+    }
+    const res = await api.get(`/classes/${currentClass.value.id}/ranking`, { params })
+    ranking.value = res.data.ranking
+  } catch (error) {
+    console.error('加载排行失败:', error)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// 保存用户偏好
+function savePreference() {
+  const preference = {
+    mode: periodMode.value,
+    startDate: customStartDate.value,
+    endDate: customEndDate.value
+  }
+  localStorage.setItem(RANKING_PREFERENCE_KEY, JSON.stringify(preference))
+}
+
+// 加载用户偏好
+function loadPreference() {
+  const saved = localStorage.getItem(RANKING_PREFERENCE_KEY)
+  if (saved) {
+    try {
+      const preference = JSON.parse(saved)
+      periodMode.value = preference.mode || 'all'
+      customStartDate.value = preference.startDate || ''
+      customEndDate.value = preference.endDate || ''
+    } catch {
+      // 忽略解析错误
+    }
+  }
+}
+
+// 重置为全部时间段
+function resetToAll() {
+  periodMode.value = 'all'
+  customStartDate.value = ''
+  customEndDate.value = ''
+  savePreference()
+  loadRanking()
+}
+
+// 领奖台顺序（第4、第2、第1、第3、第5）
 const podiumOrder = computed(() => {
   const sorted = ranking.value
   return [
@@ -26,176 +85,289 @@ const podiumOrder = computed(() => {
   ]
 })
 
-// 其余学生（第6名开始，最多15人）
+// 其他学生（从第6名开始，最多15人）
 const crowd = computed(() => ranking.value.slice(5, 20))
+
+// 检查是否是零分学生
+function isZeroScore(student: any): boolean {
+  return student.total_points === 0
+}
+
+function getDisplayLevel(student: Student): number {
+  return Math.max(1, Math.min(8, student.pet_level || 1))
+}
 
 function getStudentPetImage(student: Student): string {
   if (!student.pet_type) return ''
-  const level = Math.max(1, Math.min(8, student.pet_level || 1))
+  const level = getDisplayLevel(student)
   return getPetLevelImage(student.pet_type, level)
 }
 
-onActivated(() => {
-  loadStudents()
+// 监听时间段变化，自动更新
+watch([periodMode, customStartDate, customEndDate], () => {
+  savePreference()
+  loadRanking()
+})
+
+// 初始化
+onMounted(() => {
+  loadPreference()
+  loadRanking()
+})
+
+// 班级变化时重新加载
+watch(currentClass, () => {
+  loadRanking()
 })
 </script>
 
 <template>
   <PageLayout transparent no-padding>
     <div class="min-h-screen ranking-page">
-      <!-- 加载中 -->
-      <div v-if="isLoading" class="flex items-center justify-center py-32">
-        <div class="text-center">
-          <div class="text-7xl animate-bounce mb-4">🐾</div>
-          <div class="text-white/80 text-lg">加载中...</div>
-        </div>
+      <!-- 无班级状态 -->
+      <div v-if="classes.length === 0" class="flex flex-col items-center justify-center min-h-[60vh]">
+        <div class="text-8xl mb-6 animate-float">🏆</div>
+        <h3 class="text-2xl font-bold text-white mb-3">还没有班级</h3>
+        <p class="text-white/80 mb-6 text-lg">请先创建一个班级，再查看排行</p>
       </div>
 
-      <!-- 无数据 -->
-      <div v-else-if="students.length === 0" class="flex items-center justify-center py-32">
-        <div class="text-center">
-          <div class="text-7xl mb-4">📊</div>
-          <div class="text-white/80 text-lg">暂无学生数据</div>
-        </div>
-      </div>
-
-      <!-- 排行榜 -->
+      <!-- 有班级的正常界面 -->
       <template v-else>
-        <!-- 班级名称 -->
-        <div class="text-center pt-6 pb-2" v-if="currentClass">
-          <h2 class="text-2xl font-bold text-white drop-shadow-lg">{{ currentClass.name }}</h2>
-        </div>
-
-        <!-- 领奖台区域 -->
-        <div class="podium-section">
-          <div class="podium-container">
-            <div class="podium">
-              <!-- 第四名 -->
-              <div class="podium-place fourth" v-if="podiumOrder[0]">
-                <div class="pedestal">
-                  <div class="pet-avatar small">
-                    <img v-if="podiumOrder[0].pet_type" :src="getStudentPetImage(podiumOrder[0])" class="pet-image" />
-                    <span v-else class="pet-placeholder small">🐾</span>
-                  </div>
-                  <div class="student-name small">{{ podiumOrder[0].name }}</div>
-                  <div class="student-points small">⭐ {{ podiumOrder[0].total_points }}</div>
-                  <div class="pedestal-block low">
-                    <span class="rank-number small">4</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 第二名 -->
-              <div class="podium-place second" v-if="podiumOrder[1]">
-                <div class="pedestal">
-                  <div class="rank-badge">🥈</div>
-                  <div class="pet-avatar">
-                    <img v-if="podiumOrder[1].pet_type" :src="getStudentPetImage(podiumOrder[1])" class="pet-image" />
-                    <span v-else class="pet-placeholder">🐾</span>
-                  </div>
-                  <div class="student-name">{{ podiumOrder[1].name }}</div>
-                  <div class="student-level">Lv.{{ getDisplayLevel(podiumOrder[1]) }}</div>
-                  <div class="student-points">
-                    <span class="points-star">⭐</span>
-                    {{ podiumOrder[1].total_points }}
-                  </div>
-                  <div class="pedestal-block silver">
-                    <span class="rank-number">2</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 第一名 -->
-              <div class="podium-place first" v-if="podiumOrder[2]">
-                <div class="pedestal">
-                  <div class="crown">👑</div>
-                  <div class="rank-badge gold">🥇</div>
-                  <div class="pet-avatar large">
-                    <img v-if="podiumOrder[2].pet_type" :src="getStudentPetImage(podiumOrder[2])" class="pet-image" />
-                    <span v-else class="pet-placeholder large">🐾</span>
-                  </div>
-                  <div class="student-name champion">{{ podiumOrder[2].name }}</div>
-                  <div class="student-level">Lv.{{ getDisplayLevel(podiumOrder[2]) }}</div>
-                  <div class="student-points champion-points">
-                    <span class="points-star">⭐</span>
-                    {{ podiumOrder[2].total_points }}
-                  </div>
-                  <div class="pedestal-block gold-block">
-                    <span class="rank-number">1</span>
-                  </div>
-                </div>
-                <div class="spotlight"></div>
-              </div>
-
-              <!-- 第三名 -->
-              <div class="podium-place third" v-if="podiumOrder[3]">
-                <div class="pedestal">
-                  <div class="rank-badge">🥉</div>
-                  <div class="pet-avatar">
-                    <img v-if="podiumOrder[3].pet_type" :src="getStudentPetImage(podiumOrder[3])" class="pet-image" />
-                    <span v-else class="pet-placeholder">🐾</span>
-                  </div>
-                  <div class="student-name">{{ podiumOrder[3].name }}</div>
-                  <div class="student-level">Lv.{{ getDisplayLevel(podiumOrder[3]) }}</div>
-                  <div class="student-points">
-                    <span class="points-star">⭐</span>
-                    {{ podiumOrder[3].total_points }}
-                  </div>
-                  <div class="pedestal-block bronze">
-                    <span class="rank-number">3</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 第五名 -->
-              <div class="podium-place fifth" v-if="podiumOrder[4]">
-                <div class="pedestal">
-                  <div class="pet-avatar small">
-                    <img v-if="podiumOrder[4].pet_type" :src="getStudentPetImage(podiumOrder[4])" class="pet-image" />
-                    <span v-else class="pet-placeholder small">🐾</span>
-                  </div>
-                  <div class="student-name small">{{ podiumOrder[4].name }}</div>
-                  <div class="student-points small">⭐ {{ podiumOrder[4].total_points }}</div>
-                  <div class="pedestal-block low">
-                    <span class="rank-number small">5</span>
-                  </div>
-                </div>
-              </div>
+        <!-- 时间段选择器 -->
+        <div class="time-selector-container mx-4">
+          <div class="flex items-center justify-between flex-wrap gap-4">
+            <div class="flex items-center gap-3">
+              <h2 class="text-xl font-bold text-white flex items-center gap-2 drop-shadow-md">
+                <span class="text-2xl">📊</span> 积分排行榜
+              </h2>
             </div>
-            <div class="stage-floor"></div>
-          </div>
-        </div>
-
-        <!-- 人群区域 -->
-        <div class="crowd-section" v-if="crowd.length > 0">
-          <div class="crowd-header">
-            <span class="crowd-icon">👀</span>
-            <span>吃瓜群众</span>
-          </div>
-          
-          <div class="crowd-container">
-            <div 
-              v-for="(student, index) in crowd" 
-              :key="student.id"
-              class="crowd-member"
-              :style="{ animationDelay: `${index * 0.1}s` }"
-            >
-              <div class="crowd-rank">{{ index + 6 }}</div>
-              <div class="crowd-avatar">
-                <img 
-                  v-if="student.pet_type"
-                  :src="getStudentPetImage(student)" 
-                  class="crowd-pet"
-                />
-                <span v-else class="crowd-placeholder">🐾</span>
+            
+            <!-- 时间段控制 -->
+            <div class="flex items-center gap-3 flex-wrap">
+              <!-- 模式切换 -->
+              <div class="flex bg-white/20 backdrop-blur-sm rounded-xl p-1 border border-white/30">
+                <button
+                  @click="resetToAll"
+                  class="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                  :class="periodMode === 'all' 
+                    ? 'bg-white/90 text-purple-700 shadow-md' 
+                    : 'text-white/90 hover:bg-white/20 hover:text-white'"
+                >
+                  📅 全部
+                </button>
+                <button
+                  @click="periodMode = 'custom'"
+                  class="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                  :class="periodMode === 'custom' 
+                    ? 'bg-white/90 text-purple-700 shadow-md' 
+                    : 'text-white/90 hover:bg-white/20 hover:text-white'"
+                >
+                  📆 自定义
+                </button>
               </div>
-              <div class="crowd-info">
-                <div class="crowd-name">{{ student.name }}</div>
-                <div class="crowd-points">⭐ {{ student.total_points }}</div>
+
+              <!-- 自定义日期选择 -->
+              <div v-if="periodMode === 'custom'" class="flex items-center gap-3">
+                <div class="flex items-center gap-2">
+                  <label class="text-sm text-white/90 drop-shadow">起始:</label>
+                  <input
+                    v-model="customStartDate"
+                    type="date"
+                    class="border border-white/40 bg-white/90 backdrop-blur-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-white/50 text-gray-800"
+                  />
+                </div>
+                <div class="flex items-center gap-2">
+                  <label class="text-sm text-white/90 drop-shadow">结束:</label>
+                  <input
+                    v-model="customEndDate"
+                    type="date"
+                    class="border border-white/40 bg-white/90 backdrop-blur-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-white/50 text-gray-800"
+                  />
+                </div>
+                <button
+                  @click="resetToAll"
+                  class="text-sm text-white/80 hover:text-white font-medium transition-colors drop-shadow"
+                >
+                  重置
+                </button>
               </div>
             </div>
           </div>
+
+          <!-- 时间段提示 -->
+          <div v-if="periodMode === 'custom' && customStartDate && customEndDate" class="mt-3 text-sm text-white/80 drop-shadow">
+            显示 <span class="font-semibold text-yellow-300">{{ customStartDate }}</span> 至 <span class="font-semibold text-yellow-300">{{ customEndDate }}</span> 期间的积分
+          </div>
         </div>
+
+        <!-- 加载中 -->
+        <div v-if="isLoading" class="flex items-center justify-center py-32">     
+          <div class="text-center">
+            <div class="text-7xl animate-bounce mb-4">🏆</div>
+            <div class="text-white/80 text-lg">加载中...</div>
+          </div>
+        </div>
+
+        <!-- 无数据 -->
+        <div v-else-if="ranking.length === 0" class="flex items-center justify-center py-32">
+          <div class="text-center">
+            <div class="text-7xl mb-4">🏳️</div>
+            <div class="text-white/80 text-lg">暂无数据</div>
+          </div>
+        </div>
+
+        <!-- 排行榜 -->
+        <template v-else>
+          <!-- 班级名称 -->
+          <div class="text-center pt-6 pb-2" v-if="currentClass">
+            <h2 class="text-2xl font-bold text-white drop-shadow-lg">{{ currentClass.name }}</h2>
+          </div>
+
+          <!-- 领奖台区域 -->
+          <div class="podium-section">
+            <div class="podium-container">
+              <div class="podium">
+                <!-- 第四名 -->
+                <div class="podium-place fourth" v-if="podiumOrder[0]">
+                  <div class="pedestal">
+                    <div class="pet-avatar small">
+                      <img v-if="podiumOrder[0].pet_type" :src="getStudentPetImage(podiumOrder[0])" class="pet-image" />
+                      <span v-else class="pet-placeholder small">🥚</span>      
+                    </div>
+                    <div class="student-name small">{{ podiumOrder[0].name }}</div>
+                    <div class="student-points small">⭐{{ podiumOrder[0].total_points }}</div>
+                    <div class="pedestal-block low">
+                      <span v-if="!isZeroScore(podiumOrder[0])" class="rank-number small">#{{ podiumOrder[0].rank }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 第二名 -->
+                <div class="podium-place second" v-if="podiumOrder[1]">
+                  <div class="pedestal">
+                    <div v-if="podiumOrder[1].rank <= 3" class="rank-badge">
+                      <span v-if="podiumOrder[1].rank === 1">🥇</span>
+                      <span v-else-if="podiumOrder[1].rank === 2">🥈</span>
+                      <span v-else-if="podiumOrder[1].rank === 3">🥉</span>
+                    </div>
+                    <div class="pet-avatar">
+                      <img v-if="podiumOrder[1].pet_type" :src="getStudentPetImage(podiumOrder[1])" class="pet-image" />
+                      <span v-else class="pet-placeholder">🥚</span>
+                    </div>
+                    <div class="student-name">{{ podiumOrder[1].name }}</div>     
+                    <div class="student-level">Lv.{{ getDisplayLevel(podiumOrder[1]) }}</div>
+                    <div class="student-points">
+                      <span class="points-star">⭐</span>
+                      {{ podiumOrder[1].total_points }}
+                    </div>
+                    <div class="pedestal-block silver">
+                      <span v-if="!isZeroScore(podiumOrder[1])" class="rank-number">#{{ podiumOrder[1].rank }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 第一名 -->
+                <div class="podium-place first" v-if="podiumOrder[2]">
+                  <div class="pedestal">
+                    <div v-if="podiumOrder[2].rank === 1" class="crown">👑</div>
+                    <div v-if="podiumOrder[2].rank <= 3" class="rank-badge gold">
+                      <span v-if="podiumOrder[2].rank === 1">🥇</span>
+                      <span v-else-if="podiumOrder[2].rank === 2">🥈</span>
+                      <span v-else-if="podiumOrder[2].rank === 3">🥉</span>
+                    </div>
+                    <div class="pet-avatar large">
+                      <img v-if="podiumOrder[2].pet_type" :src="getStudentPetImage(podiumOrder[2])" class="pet-image" />
+                      <span v-else class="pet-placeholder large">🥚</span>      
+                    </div>
+                    <div class="student-name champion">{{ podiumOrder[2].name }}</div>
+                    <div class="student-level">Lv.{{ getDisplayLevel(podiumOrder[2]) }}</div>
+                    <div class="student-points champion-points">
+                      <span class="points-star">⭐</span>
+                      {{ podiumOrder[2].total_points }}
+                    </div>
+                    <div class="pedestal-block gold-block">
+                      <span v-if="!isZeroScore(podiumOrder[2])" class="rank-number">#{{ podiumOrder[2].rank }}</span>
+                    </div>
+                  </div>
+                  <div class="spotlight"></div>
+                </div>
+
+                <!-- 第三名 -->
+                <div class="podium-place third" v-if="podiumOrder[3]">
+                  <div class="pedestal">
+                    <div v-if="podiumOrder[3].rank <= 3" class="rank-badge">
+                      <span v-if="podiumOrder[3].rank === 1">🥇</span>
+                      <span v-else-if="podiumOrder[3].rank === 2">🥈</span>
+                      <span v-else-if="podiumOrder[3].rank === 3">🥉</span>
+                    </div>
+                    <div class="pet-avatar">
+                      <img v-if="podiumOrder[3].pet_type" :src="getStudentPetImage(podiumOrder[3])" class="pet-image" />
+                      <span v-else class="pet-placeholder">🥚</span>
+                    </div>
+                    <div class="student-name">{{ podiumOrder[3].name }}</div>     
+                    <div class="student-level">Lv.{{ getDisplayLevel(podiumOrder[3]) }}</div>
+                    <div class="student-points">
+                      <span class="points-star">⭐</span>
+                      {{ podiumOrder[3].total_points }}
+                    </div>
+                    <div class="pedestal-block bronze">
+                      <span v-if="!isZeroScore(podiumOrder[3])" class="rank-number">#{{ podiumOrder[3].rank }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 第五名 -->
+                <div class="podium-place fifth" v-if="podiumOrder[4]">
+                  <div class="pedestal">
+                    <div class="pet-avatar small">
+                      <img v-if="podiumOrder[4].pet_type" :src="getStudentPetImage(podiumOrder[4])" class="pet-image" />
+                      <span v-else class="pet-placeholder small">🥚</span>      
+                    </div>
+                    <div class="student-name small">{{ podiumOrder[4].name }}</div>
+                    <div class="student-points small">⭐{{ podiumOrder[4].total_points }}</div>
+                    <div class="pedestal-block low">
+                      <span v-if="!isZeroScore(podiumOrder[4])" class="rank-number small">#{{ podiumOrder[4].rank }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="stage-floor"></div>
+            </div>
+          </div>
+
+          <!-- 人群区域 -->
+          <div class="crowd-section" v-if="crowd.length > 0">
+            <div class="crowd-header">
+              <span class="crowd-icon">🎊</span>
+              <span>吃瓜群众</span>
+            </div>
+
+            <div class="crowd-container">
+              <div
+                v-for="(student, index) in crowd"
+                :key="student.id"
+                class="crowd-member"
+                :style="{ animationDelay: `${index * 0.1}s` }"
+              >
+                <div class="crowd-rank">
+                  <span v-if="!isZeroScore(student)">#{{ student.rank }}</span>
+                </div>
+                <div class="crowd-avatar">
+                  <img
+                    v-if="student.pet_type"
+                    :src="getStudentPetImage(student)"
+                    class="crowd-pet"
+                  />
+                  <span v-else class="crowd-placeholder">🥚</span>
+                </div>
+                <div class="crowd-info">
+                  <div class="crowd-name">{{ student.name }}</div>
+                  <div class="crowd-points">⭐{{ student.total_points }}</div>   
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
       </template>
     </div>
   </PageLayout>
@@ -203,8 +375,17 @@ onActivated(() => {
 
 <style scoped>
 .ranking-page {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);   
   min-height: 100vh;
+}
+
+.time-selector-container {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(20px);
+  border-radius: 1rem;
+  padding: 1rem;
+  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
 .podium-section {
@@ -249,7 +430,7 @@ onActivated(() => {
 
 .rank-badge.gold {
   font-size: 2.5rem;
-  animation: float 2s ease-in-out infinite, glow 1.5s ease-in-out infinite;
+  animation: float 2s ease-in-out infinite, glow 1.5s ease-in-out infinite;     
 }
 
 @keyframes float {
@@ -381,7 +562,8 @@ onActivated(() => {
   align-items: center;
   justify-content: center;
   margin-top: 10px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.4), inset 0 2px 0 rgba(255,255,255,0.2), inset 0 -2px 0 rgba(0,0,0,0.2);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.4), inset 0 2px 0 rgba(255,255,255,0.2), 
+inset 0 -2px 0 rgba(0,0,0,0.2);
   position: relative;
 }
 
@@ -399,12 +581,13 @@ onActivated(() => {
 .pedestal-block.gold-block {
   width: 110px;
   height: 80px;
-  background: linear-gradient(180deg, #ffd700 0%, #daa520 50%, #b8860b 100%);
-  box-shadow: 0 15px 40px rgba(0,0,0,0.5), inset 0 2px 0 rgba(255,255,255,0.4), 0 0 30px rgba(255,215,0,0.3);
+  background: linear-gradient(180deg, #ffd700 0%, #daa520 50%, #b8860b 100%);   
+  box-shadow: 0 15px 40px rgba(0,0,0,0.5), inset 0 2px 0 rgba(255,255,255,0.4), 
+0 0 30px rgba(255,215,0,0.3);
 }
 
 .pedestal-block.silver {
-  background: linear-gradient(180deg, #c0c0c0 0%, #a0a0a0 50%, #808080 100%);
+  background: linear-gradient(180deg, #c0c0c0 0%, #a0a0a0 50%, #808080 100%);   
 }
 
 .pedestal-block.bronze {
@@ -608,73 +791,72 @@ onActivated(() => {
   .podium {
     gap: 6px;
   }
-  
+
   .pet-avatar {
     width: 60px;
     height: 60px;
   }
-  
+
   .pet-avatar.large {
     width: 75px;
     height: 75px;
   }
-  
+
   .pet-avatar.small {
     width: 45px;
     height: 45px;
   }
-  
+
   .student-name {
     font-size: 0.8rem;
     max-width: 60px;
   }
-  
+
   .student-name.champion {
     font-size: 0.95rem;
   }
-  
+
   .student-name.small {
     font-size: 0.75rem;
     max-width: 55px;
   }
-  
+
   .pedestal-block {
     width: 55px;
     height: 35px;
   }
-  
+
   .pedestal-block.gold-block {
     width: 70px;
     height: 50px;
   }
-  
+
   .pedestal-block.low {
     width: 50px;
     height: 28px;
   }
-  
   .first .pedestal-block {
     height: 50px;
   }
-  
+
   .second .pedestal-block {
     height: 40px;
   }
-  
+
   .third .pedestal-block {
     height: 35px;
   }
-  
+
   .fourth .pedestal-block,
   .fifth .pedestal-block {
     height: 28px;
   }
-  
+
   .crowd-member {
     min-width: 140px;
     padding: 8px 10px;
   }
-  
+
   .crowd-avatar {
     width: 35px;
     height: 35px;

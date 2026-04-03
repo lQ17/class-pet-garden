@@ -53,6 +53,7 @@ function initTestDb() {
       name TEXT NOT NULL,
       student_no TEXT,
       total_points INTEGER DEFAULT 0,
+      usable_points INTEGER DEFAULT 0,
       pet_type TEXT,
       pet_level INTEGER DEFAULT 1,
       pet_exp INTEGER DEFAULT 0,
@@ -113,6 +114,30 @@ function initTestDb() {
       created_at INTEGER,
       FOREIGN KEY (student_id) REFERENCES students(id),
       FOREIGN KEY (tag_id) REFERENCES student_tags(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS products (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      price INTEGER NOT NULL,
+      stock INTEGER DEFAULT -1,
+      image_url TEXT,
+      is_enabled INTEGER DEFAULT 1,
+      sort_order INTEGER DEFAULT 0,
+      created_at INTEGER,
+      updated_at INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS redemption_records (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      student_id TEXT NOT NULL,
+      product_id TEXT NOT NULL,
+      product_name TEXT NOT NULL,
+      price INTEGER NOT NULL,
+      redeemed_at INTEGER
     );
   `)
 }
