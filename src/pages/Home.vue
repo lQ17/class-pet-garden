@@ -9,7 +9,6 @@ import { useToast } from '@/composables/useToast'
 import { useConfirm } from '@/composables/useConfirm'
 import { useLevelUp } from '@/composables/useLevelUp'
 import { usePetStatusAnimation } from '@/composables/usePetStatusAnimation'
-import { useLoginModal } from '@/composables/useLoginModal'
 import { getPetType } from '@/data/pets'
 import { matchByPinyin } from '@/utils/pinyin'
 
@@ -21,7 +20,6 @@ import StudentCard from '@/components/StudentCard.vue'
 import BatchActionBar from '@/components/BatchActionBar.vue'
 import DetailPanel from '@/components/DetailPanel.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
-import AuthModal from '@/components/AuthModal.vue'
 import PageLayout from '@/components/layout/PageLayout.vue'
 import EvaluationModal from '@/components/modals/EvaluationModal.vue'
 import PetModal from '@/components/modals/PetModal.vue'
@@ -43,7 +41,6 @@ const reviveInfo = ref<{ name: string; petType: string; petLevel: number } | nul
 const { classes, currentClass, loadClasses, createClass } = useClasses()
 const { students, loadStudents, changePet, batchEvaluate, addEvaluation } = useStudents()
 const { allTags, loadTags, getStudentTags } = useTags()
-const { showLoginModal, closeLoginModal } = useLoginModal()
 
 // 设置全局错误处理器
 setGlobalErrorHandler((message) => {
@@ -109,13 +106,6 @@ const filteredStudents = computed(() => {
   })
   return result
 })
-
-// 处理登录成功
-function handleLogin(user: { id: string; username: string; isGuest: boolean }) {
-  toast.success(`欢迎，${user.username}！`)
-  loadClasses()
-  loadRules()
-}
 
 // 数据加载
 async function loadRules() {
@@ -466,7 +456,6 @@ onActivated(() => {
     <PetModal :show="showPetModal" :student="selectedStudent" @close="showPetModal = false; selectedStudent = null" @select="selectPet" />
     <DetailPanel :show="showDetailPanel" :student="detailStudent" :rules="rules" :student-records="studentRecords" @close="closeDetailPanel" @change-pet="showDetailPanel = false; selectedStudent = detailStudent; showPetModal = true" @evaluate="handleDetailEvaluate" @revived="handleRevived" />
     <ConfirmDialog :show="confirmDialog.show" :title="confirmDialog.title" :message="confirmDialog.message" :confirm-text="confirmDialog.confirmText" :cancel-text="confirmDialog.cancelText" :type="confirmDialog.type" @confirm="confirmDialog.onConfirm" @cancel="closeConfirm" />
-    <AuthModal :show="showLoginModal" @close="closeLoginModal" @login="handleLogin($event)" />
     <ClassModal :show="showClassModal" @close="showClassModal = false" @submit="handleCreateClass" />
   </PageLayout>
 </template>

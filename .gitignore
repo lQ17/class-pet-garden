@@ -36,3 +36,6 @@ logs/
 server.log
 server.pid
 *.bak
+
+# mine
+tmp.md

@@ -5,12 +5,12 @@ import { useAuth } from '@/composables/useAuth'
 import { useToast } from '@/composables/useToast'
 import PageLayout from '@/components/layout/PageLayout.vue'
 
-const { isAdmin, isGuest, api } = useAuth()
+const { isAdmin, api } = useAuth()
 const toast = useToast()
 const router = useRouter()
 
 interface TeacherClass { id: string; name: string; student_count: number; eval_count: number }
-interface Teacher { id: string; username: string; isAdmin: boolean; isGuest: boolean; createdAt: number; classCount: number; totalStudents: number; totalEvals: number; lastEvalTime: number | null; todayEvals: number; classes: TeacherClass[] }
+interface Teacher { id: string; username: string; isAdmin: boolean; createdAt: number; classCount: number; totalStudents: number; totalEvals: number; lastEvalTime: number | null; todayEvals: number; classes: TeacherClass[] }
 interface Stats { teachers: number; classes: number; students: number; evaluations: number; todayEvaluations: number }
 interface DailyStat { date: string; newUsers: number; newClasses: number; newStudents: number; evaluations: number }
 
@@ -21,17 +21,15 @@ const isLoading = ref(true)
 const expandedTeacher = ref<string | null>(null)
 const activeTab = ref<'teachers' | 'stats'>('teachers')
 
-// 删除确认弹窗状态
 const showDeleteConfirm = ref(false)
 const teacherToDelete = ref<Teacher | null>(null)
 const isDeleting = ref(false)
 const deleteConfirmInput = ref('')
 
-// 判断输入的用户名是否匹配
 const canConfirmDelete = computed(() => deleteConfirmInput.value === teacherToDelete.value?.username)
 
 onMounted(async () => {
-  if (isGuest.value || !isAdmin.value) { toast.error('需要管理员权限'); router.push('/'); return }
+  if (!isAdmin.value) { toast.error('需要管理员权限'); router.push('/'); return }
   await loadData()
 })
 
@@ -44,7 +42,6 @@ async function loadData() {
     ])
     teachers.value = teachersRes.data.teachers
     stats.value = statsRes.data.stats
-    // 加载详细的每日统计数据
     await loadDailyStats()
   } catch (e: any) {
     toast.error(e.response?.data?.error || '加载失败')
@@ -54,7 +51,7 @@ async function loadData() {
 }
 
 async function loadDailyStats() {
-  if (dailyStats.value.length > 0) return // 已经加载过
+  if (dailyStats.value.length > 0) return
   try {
     const res = await api.get('/admin/daily-stats')
     dailyStats.value = res.data.dailyStats
@@ -67,16 +64,13 @@ function toggleTeacher(id: string) { expandedTeacher.value = expandedTeacher.val
 function formatDate(timestamp: number) { return new Date(timestamp).toLocaleDateString('zh-CN') }
 function formatShortDate(date: string) { return date.slice(5) }
 
-// 判断是否超过15天没有评价（综合考虑注册时间）
 function isInactive(teacher: Teacher): boolean {
   const fifteenDaysMs = 15 * 24 * 60 * 60 * 1000
   const now = Date.now()
   
   if (teacher.lastEvalTime) {
-    // 有评价记录，判断最后一次评价是否超过15天
     return now - teacher.lastEvalTime > fifteenDaysMs
   } else {
-    // 从未评价，判断注册时间是否超过15天
     return now - teacher.createdAt > fifteenDaysMs
   }
 }
@@ -84,13 +78,11 @@ function isInactive(teacher: Teacher): boolean {
 const totalStudents = computed(() => teachers.value.reduce((sum, t) => sum + t.totalStudents, 0))
 const totalEvals = computed(() => teachers.value.reduce((sum, t) => sum + t.totalEvals, 0))
 
-// 计算最大值用于图表
 const maxEvals = computed(() => Math.max(...dailyStats.value.map(d => d.evaluations), 1))
 const maxNewStudents = computed(() => Math.max(...dailyStats.value.map(d => d.newStudents), 1))
 const maxNewUsers = computed(() => Math.max(...dailyStats.value.map(d => d.newUsers), 1))
 const maxNewClasses = computed(() => Math.max(...dailyStats.value.map(d => d.newClasses), 1))
 
-// 周汇总
 const weekTotal = computed(() => ({
   newUsers: dailyStats.value.reduce((sum, d) => sum + d.newUsers, 0),
   newClasses: dailyStats.value.reduce((sum, d) => sum + d.newClasses, 0),
@@ -98,7 +90,6 @@ const weekTotal = computed(() => ({
   evaluations: dailyStats.value.reduce((sum, d) => sum + d.evaluations, 0)
 }))
 
-// 折线图路径生成
 const chartHeight = 60
 const paddingY = 10
 const defaultWidth = 300
@@ -107,7 +98,7 @@ function generateLinePath(data: number[], max: number): string {
   if (data.length === 0) return ''
   const stepX = defaultWidth / data.length
   const points = data.map((val, i) => {
-    const x = (i + 0.5) * stepX  // 在 flex 子元素中心
+    const x = (i + 0.5) * stepX
     const y = chartHeight - paddingY - (val / Math.max(max, 1)) * (chartHeight - paddingY * 2)
     return `${x},${y}`
   })
@@ -123,7 +114,6 @@ function generateAreaPath(data: number[], max: number): string {
   return `${linePath} L ${lastX},${chartHeight - paddingY} L ${firstX},${chartHeight - paddingY} Z`
 }
 
-// 删除相关
 function confirmDelete(teacher: Teacher) {
   teacherToDelete.value = teacher
   deleteConfirmInput.value = ''
@@ -161,7 +151,6 @@ async function executeDelete() {
     </div>
     
     <div v-else class="max-w-4xl mx-auto space-y-6 w-full">
-      <!-- 概览卡片 -->
       <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
         <div class="bg-white rounded-xl shadow-sm p-4 text-center">
           <div class="text-2xl font-bold text-orange-500">{{ stats?.teachers || 0 }}</div>
@@ -185,7 +174,6 @@ async function executeDelete() {
         </div>
       </div>
 
-      <!-- 页签切换 -->
       <div class="bg-white rounded-xl shadow-sm overflow-hidden">
         <div class="flex border-b border-gray-100">
           <button 
@@ -204,11 +192,10 @@ async function executeDelete() {
           </button>
         </div>
 
-        <!-- 老师列表 -->
         <div v-if="activeTab === 'teachers'">
           <div v-if="teachers.length === 0" class="p-8 text-center text-gray-400">暂无老师数据</div>
           <div v-else class="divide-y divide-gray-100">
-            <div v-for="teacher in teachers" :key="teacher.id" class="hover:bg-gray-50" :class="isInactive(teacher) && !teacher.isAdmin && !teacher.isGuest ? 'bg-red-50/30' : ''">
+            <div v-for="teacher in teachers" :key="teacher.id" class="hover:bg-gray-50" :class="isInactive(teacher) && !teacher.isAdmin ? 'bg-red-50/30' : ''">
               <div class="p-4 flex items-center justify-between cursor-pointer" @click="toggleTeacher(teacher.id)">
                 <div class="flex items-center gap-3">
                   <div class="w-10 h-10 rounded-full bg-gradient-to-r from-orange-400 to-pink-500 flex items-center justify-center text-white font-bold">
@@ -218,10 +205,9 @@ async function executeDelete() {
                     <div class="font-medium text-gray-800 flex items-center gap-2">
                       {{ teacher.username }}
                       <span v-if="teacher.isAdmin" class="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full">管理员</span>
-                      <span v-if="teacher.isGuest" class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">游客</span>
-                      <span v-if="isInactive(teacher) && !teacher.isAdmin && !teacher.isGuest" class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">⚠️ 不活跃</span>
+                      <span v-if="isInactive(teacher) && !teacher.isAdmin" class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">⚠️ 不活跃</span>
                       <button 
-                        v-if="!teacher.isAdmin && !teacher.isGuest"
+                        v-if="!teacher.isAdmin"
                         @click.stop="confirmDelete(teacher)"
                         class="ml-1 px-2 py-0.5 text-xs text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                         title="删除用户"
@@ -270,9 +256,7 @@ async function executeDelete() {
           </div>
         </div>
 
-        <!-- 近7天数据 -->
         <div v-else class="p-4">
-          <!-- 周汇总 -->
           <div class="grid grid-cols-4 gap-3 mb-6">
             <div class="bg-orange-50 rounded-lg p-3 text-center">
               <div class="text-lg font-bold text-orange-600">+{{ weekTotal.newUsers }}</div>
@@ -292,9 +276,7 @@ async function executeDelete() {
             </div>
           </div>
 
-          <!-- 折线图 -->
           <div class="space-y-4">
-            <!-- 新用户 -->
             <div class="bg-gray-50 rounded-xl p-4">
               <div class="flex items-center justify-between mb-2">
                 <h4 class="text-sm font-medium text-gray-700">🆕 新用户</h4>
@@ -313,7 +295,6 @@ async function executeDelete() {
               </div>
             </div>
 
-            <!-- 新班级 -->
             <div class="bg-gray-50 rounded-xl p-4">
               <div class="flex items-center justify-between mb-2">
                 <h4 class="text-sm font-medium text-gray-700">📚 新班级</h4>
@@ -332,7 +313,6 @@ async function executeDelete() {
               </div>
             </div>
 
-            <!-- 新增学生 -->
             <div class="bg-gray-50 rounded-xl p-4">
               <div class="flex items-center justify-between mb-2">
                 <h4 class="text-sm font-medium text-gray-700">👥 新增学生</h4>
@@ -351,7 +331,6 @@ async function executeDelete() {
               </div>
             </div>
 
-            <!-- 评价趋势 -->
             <div class="bg-gray-50 rounded-xl p-4">
               <div class="flex items-center justify-between mb-2">
                 <h4 class="text-sm font-medium text-gray-700">📈 评价趋势</h4>
@@ -373,7 +352,6 @@ async function executeDelete() {
         </div>
       </div>
 
-      <!-- 汇总 -->
       <div class="bg-gradient-to-r from-orange-100 to-amber-100 rounded-xl p-4">
         <h3 class="font-bold text-gray-700 mb-2">📈 汇总</h3>
         <div class="grid grid-cols-2 gap-4 text-sm">
@@ -383,7 +361,6 @@ async function executeDelete() {
       </div>
     </div>
 
-    <!-- 删除确认弹窗 -->
     <div v-if="showDeleteConfirm" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cancelDelete">
       <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
         <div class="bg-red-500 px-6 py-4">

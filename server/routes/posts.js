@@ -59,14 +59,8 @@ router.get('/:id', (req, res) => {
   res.json({ post, comments })
 })
 
-// 创建帖子（需要登录，非游客）
+// 创建帖子
 router.post('/', authMiddleware, (req, res) => {
-  // 检查是否是游客
-  const user = db.prepare('SELECT is_guest FROM users WHERE id = ?').get(req.userId)
-  if (!user || user.is_guest) {
-    return res.status(403).json({ error: '游客无法发帖' })
-  }
-
   const { title, content } = req.body
   if (!title || !title.trim()) {
     return res.status(400).json({ error: '标题不能为空' })
@@ -120,12 +114,6 @@ router.delete('/:id', authMiddleware, (req, res) => {
 
 // 投票（点赞/点踩）
 router.post('/:id/vote', authMiddleware, (req, res) => {
-  // 检查是否是游客
-  const user = db.prepare('SELECT is_guest FROM users WHERE id = ?').get(req.userId)
-  if (!user || user.is_guest) {
-    return res.status(403).json({ error: '游客无法投票' })
-  }
-
   const { voteType } = req.body // 1=赞, -1=踩, 0=取消
   if (![-1, 0, 1].includes(voteType)) {
     return res.status(400).json({ error: '无效的投票类型' })
@@ -182,12 +170,6 @@ router.get('/:id/vote', authMiddleware, (req, res) => {
 
 // 添加评论
 router.post('/:id/comments', authMiddleware, (req, res) => {
-  // 检查是否是游客
-  const user = db.prepare('SELECT is_guest FROM users WHERE id = ?').get(req.userId)
-  if (!user || user.is_guest) {
-    return res.status(403).json({ error: '游客无法评论' })
-  }
-
   const { content } = req.body
   if (!content || !content.trim()) {
     return res.status(400).json({ error: '评论内容不能为空' })

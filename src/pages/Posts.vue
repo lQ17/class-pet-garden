@@ -6,7 +6,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import PageLayout from '@/components/layout/PageLayout.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 
-const { user, isGuest, isAdmin, api } = useAuth()
+const { user, isAdmin, api } = useAuth()
 const toast = useToast()
 const { confirmDialog, showConfirm, closeConfirm } = useConfirm()
 
@@ -22,7 +22,7 @@ interface Post {
   upvotes: number
   downvotes: number
   comment_count: number
-  myVote?: number  // 1=赞, -1=踩, 0=无
+  myVote?: number
 }
 
 interface Comment {
@@ -55,8 +55,7 @@ async function loadPosts() {
   try {
     const res = await api.get('/posts')
     posts.value = res.data.posts
-    // 如果已登录，获取投票状态
-    if (user.value && !isGuest.value) {
+    if (user.value) {
       await loadVoteStatus()
     }
   } catch (e: any) {
@@ -70,18 +69,15 @@ async function loadVoteStatus() {
   try {
     const res = await api.get('/posts')
     const postsData = res.data.posts as Post[]
-    // 并行获取每个帖子的投票状态
     await Promise.all(postsData.map(async (post) => {
       try {
         const voteRes = await api.get(`/posts/${post.id}/vote`)
         const p = posts.value.find(p => p.id === post.id)
         if (p) p.myVote = voteRes.data.voteType
       } catch {
-        // 忽略
       }
     }))
   } catch {
-    // 忽略
   }
 }
 
@@ -104,10 +100,6 @@ function showAuthorName(authorName: string, isAdmin: boolean): string {
 }
 
 function openCreateModal() {
-  if (isGuest.value) {
-    toast.error('游客无法发帖，请登录')
-    return
-  }
   newTitle.value = ''
   newContent.value = ''
   showPostModal.value = true
@@ -145,8 +137,7 @@ async function openDetail(post: Post) {
     selectedPost.value = res.data.post
     comments.value = res.data.comments
     
-    // 获取投票状态
-    if (user.value && !isGuest.value && selectedPost.value) {
+    if (user.value && selectedPost.value) {
       const voteRes = await api.get(`/posts/${post.id}/vote`)
       selectedPost.value.myVote = voteRes.data.voteType
     }
@@ -159,17 +150,11 @@ async function openDetail(post: Post) {
 }
 
 async function vote(post: Post, voteType: number) {
-  if (isGuest.value) {
-    toast.error('游客无法投票')
-    return
-  }
   try {
     const res = await api.post(`/posts/${post.id}/vote`, { voteType })
-    // 更新投票状态
     const actualVote = res.data.voteType
     const oldVote = post.myVote || 0
     
-    // 更新计数
     if (oldVote === 1) post.upvotes--
     if (oldVote === -1) post.downvotes--
     if (actualVote === 1) post.upvotes++
@@ -202,7 +187,6 @@ async function addComment() {
       author_is_admin: res.data.author_is_admin
     })
     newComment.value = ''
-    // 更新评论数
     selectedPost.value.comment_count++
     const post = posts.value.find(p => p.id === selectedPost.value!.id)
     if (post) post.comment_count++
@@ -257,13 +241,12 @@ async function deleteComment(commentId: string) {
   })
 }
 
-const canPost = computed(() => user.value && !isGuest.value)
+const canPost = computed(() => user.value)
 </script>
 
 <template>
   <PageLayout>
     <div class="max-w-3xl mx-auto w-full">
-      <!-- 头部 -->
       <div class="flex items-center justify-between mb-6">
         <h1 class="text-2xl font-bold text-gray-800">💬 公共留言板</h1>
         <button 
@@ -275,23 +258,15 @@ const canPost = computed(() => user.value && !isGuest.value)
         </button>
       </div>
 
-      <!-- 提示 -->
-      <div v-if="isGuest" class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
-        <p class="text-sm text-amber-700">💡 游客可以浏览帖子，但无法发帖、评论或投票。请登录后参与讨论。</p>
-      </div>
-
-      <!-- 加载中 -->
       <div v-if="isLoading" class="flex items-center justify-center py-20">
         <div class="animate-spin rounded-full h-12 w-12 border-4 border-orange-400 border-t-transparent"></div>
       </div>
 
-      <!-- 空状态 -->
       <div v-else-if="posts.length === 0" class="text-center py-20 text-gray-400">
         <div class="text-6xl mb-4">📭</div>
         <p>还没有帖子，来发第一个吧！</p>
       </div>
 
-      <!-- 帖子列表 -->
       <div v-else class="space-y-4">
         <div 
           v-for="post in posts" 
@@ -313,15 +288,14 @@ const canPost = computed(() => user.value && !isGuest.value)
             </div>
           </div>
           
-          <!-- 操作栏 -->
           <div class="flex items-center gap-4 mt-3 pt-3 border-t border-gray-100">
             <button 
               @click.stop="vote(post, 1)"
-              :disabled="isGuest"
+              :disabled="!user"
               class="flex items-center gap-1 px-2 py-1 rounded-lg transition-colors"
               :class="[
                 post.myVote === 1 ? 'bg-green-100 text-green-600' : 'hover:bg-gray-100 text-gray-500',
-                isGuest ? 'opacity-50 cursor-not-allowed' : ''
+                !user ? 'opacity-50 cursor-not-allowed' : ''
               ]"
             >
               <span>{{ post.myVote === 1 ? '👍' : '👍' }}</span>
@@ -329,11 +303,11 @@ const canPost = computed(() => user.value && !isGuest.value)
             </button>
             <button 
               @click.stop="vote(post, -1)"
-              :disabled="isGuest"
+              :disabled="!user"
               class="flex items-center gap-1 px-2 py-1 rounded-lg transition-colors"
               :class="[
                 post.myVote === -1 ? 'bg-red-100 text-red-600' : 'hover:bg-gray-100 text-gray-500',
-                isGuest ? 'opacity-50 cursor-not-allowed' : ''
+                !user ? 'opacity-50 cursor-not-allowed' : ''
               ]"
             >
               <span>{{ post.myVote === -1 ? '👎' : '👎' }}</span>
@@ -345,7 +319,6 @@ const canPost = computed(() => user.value && !isGuest.value)
       </div>
     </div>
 
-    <!-- 发帖弹窗 -->
     <div v-if="showPostModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="showPostModal = false">
       <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
         <div class="bg-orange-500 px-6 py-4">
@@ -396,14 +369,12 @@ const canPost = computed(() => user.value && !isGuest.value)
       </div>
     </div>
 
-    <!-- 详情弹窗 -->
     <div v-if="showDetailModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="showDetailModal = false">
       <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden max-h-[90vh] flex flex-col">
         <div v-if="isLoadingDetail" class="flex items-center justify-center py-20">
           <div class="animate-spin rounded-full h-12 w-12 border-4 border-orange-400 border-t-transparent"></div>
         </div>
         <template v-else-if="selectedPost">
-          <!-- 帖子内容 -->
           <div class="bg-gradient-to-r from-orange-500 to-amber-500 px-6 py-4">
             <h3 class="text-xl font-bold text-white">{{ selectedPost.title }}</h3>
             <div class="flex items-center gap-4 mt-2 text-white/80 text-sm">
@@ -413,20 +384,18 @@ const canPost = computed(() => user.value && !isGuest.value)
           </div>
           
           <div class="flex-1 overflow-y-auto">
-            <!-- 帖子正文 -->
             <div class="p-6 border-b border-gray-100">
               <p class="text-gray-700 whitespace-pre-wrap">{{ selectedPost.content }}</p>
               
-              <!-- 操作栏 -->
               <div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
                 <div class="flex items-center gap-4">
                   <button 
                     @click="vote(selectedPost, 1)"
-                    :disabled="isGuest"
+                    :disabled="!user"
                     class="flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors"
                     :class="[
                       selectedPost.myVote === 1 ? 'bg-green-100 text-green-600' : 'hover:bg-gray-100 text-gray-500',
-                      isGuest ? 'opacity-50 cursor-not-allowed' : ''
+                      !user ? 'opacity-50 cursor-not-allowed' : ''
                     ]"
                   >
                     <span>👍</span>
@@ -434,11 +403,11 @@ const canPost = computed(() => user.value && !isGuest.value)
                   </button>
                   <button 
                     @click="vote(selectedPost, -1)"
-                    :disabled="isGuest"
+                    :disabled="!user"
                     class="flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors"
                     :class="[
                       selectedPost.myVote === -1 ? 'bg-red-100 text-red-600' : 'hover:bg-gray-100 text-gray-500',
-                      isGuest ? 'opacity-50 cursor-not-allowed' : ''
+                      !user ? 'opacity-50 cursor-not-allowed' : ''
                     ]"
                   >
                     <span>👎</span>
@@ -455,7 +424,6 @@ const canPost = computed(() => user.value && !isGuest.value)
               </div>
             </div>
 
-            <!-- 评论列表 -->
             <div class="p-6">
               <h4 class="font-medium text-gray-800 mb-4">💬 评论 ({{ comments.length }})</h4>
               
@@ -485,8 +453,7 @@ const canPost = computed(() => user.value && !isGuest.value)
                 </div>
               </div>
 
-              <!-- 评论输入 -->
-              <div v-if="!isGuest" class="mt-6 pt-4 border-t border-gray-100">
+              <div v-if="user" class="mt-6 pt-4 border-t border-gray-100">
                 <div class="flex gap-3">
                   <div class="flex-1">
                     <input 
