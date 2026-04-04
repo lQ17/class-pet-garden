@@ -180,6 +180,7 @@ export function initDb() {
       stock INTEGER DEFAULT -1,  -- -1 表示无限库存
       image_url TEXT,
       is_enabled INTEGER DEFAULT 1,
+      is_deleted INTEGER DEFAULT 0,  -- 0=未删除, 1=已删除
       sort_order INTEGER DEFAULT 0,
       created_at INTEGER,
       updated_at INTEGER,
@@ -239,6 +240,13 @@ export function initDb() {
   // 迁移：添加 usable_points 到 students（如果不存在）
   try {
     db.exec(`ALTER TABLE students ADD COLUMN usable_points INTEGER DEFAULT 0`)
+  } catch (e) {
+    // 字段已存在，忽略错误
+  }
+
+  // 迁移：添加 is_deleted 到 products（如果不存在）
+  try {
+    db.exec(`ALTER TABLE products ADD COLUMN is_deleted INTEGER DEFAULT 0`)
   } catch (e) {
     // 字段已存在，忽略错误
   }

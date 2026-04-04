@@ -7,7 +7,7 @@ const router = Router()
 
 // 商品相关路由
 router.get('/products', authMiddleware, (req, res) => {
-  const products = db.prepare('SELECT * FROM products WHERE user_id = ? ORDER BY sort_order ASC, created_at DESC').all(req.userId)
+  const products = db.prepare('SELECT * FROM products WHERE user_id = ? AND is_deleted = 0 ORDER BY sort_order ASC, created_at DESC').all(req.userId)
   res.json({ products })
 })
 
@@ -24,7 +24,7 @@ router.post('/products', authMiddleware, (req, res) => {
 router.put('/products/:id', authMiddleware, (req, res) => {
   const { name, description, price, stock, imageUrl, isEnabled, sortOrder } = req.body
   const now = Date.now()
-  const product = db.prepare('SELECT * FROM products WHERE id = ? AND user_id = ?').get(req.params.id, req.userId)
+  const product = db.prepare('SELECT * FROM products WHERE id = ? AND user_id = ? AND is_deleted = 0').get(req.params.id, req.userId)
   if (!product) {
     return res.status(404).json({ error: '商品不存在或无权访问' })
   }
@@ -35,12 +35,27 @@ router.put('/products/:id', authMiddleware, (req, res) => {
 })
 
 router.delete('/products/:id', authMiddleware, (req, res) => {
-  const product = db.prepare('SELECT * FROM products WHERE id = ? AND user_id = ?').get(req.params.id, req.userId)
-  if (!product) {
-    return res.status(404).json({ error: '商品不存在或无权访问' })
+  try {
+    const product = db.prepare('SELECT * FROM products WHERE id = ? AND user_id = ?').get(req.params.id, req.userId)
+    if (!product) {
+      return res.status(404).json({ error: '商品不存在或无权访问' })
+    }
+
+    const redemptionCount = db.prepare('SELECT COUNT(*) as count FROM redemption_records WHERE product_id = ? AND user_id = ?').get(req.params.id, req.userId)
+    const hasRedemptions = redemptionCount && redemptionCount.count > 0
+
+    if (hasRedemptions) {
+      const now = Date.now()
+      db.prepare('UPDATE products SET is_deleted = 1, updated_at = ? WHERE id = ?').run(now, req.params.id)
+      res.json({ success: true, softDeleted: true })
+    } else {
+      db.prepare('DELETE FROM products WHERE id = ?').run(req.params.id)
+      res.json({ success: true, softDeleted: false })
+    }
+  } catch (error) {
+    console.error('删除商品错误:', error)
+    res.status(500).json({ error: '删除失败' })
   }
-  db.prepare('DELETE FROM products WHERE id = ?').run(req.params.id)
-  res.json({ success: true })
 })
 
 // 兑换记录相关路由
@@ -91,7 +106,7 @@ router.post('/redeem', authMiddleware, (req, res) => {
     return res.status(404).json({ error: '学生不存在或无权访问' })
   }
 
-  const product = db.prepare('SELECT * FROM products WHERE id = ? AND user_id = ?').get(productId, req.userId)
+  const product = db.prepare('SELECT * FROM products WHERE id = ? AND user_id = ? AND is_deleted = 0').get(productId, req.userId)
   if (!product) {
     return res.status(404).json({ error: '商品不存在或无权访问' })
   }
