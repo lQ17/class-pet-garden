@@ -1,9 +1,49 @@
 import { Router } from 'express'
-import { v4 as uuidv4 } from 'uuid'
 import { db } from '../db.js'
 import { authMiddleware } from '../middleware/auth.js'
+import multer from 'multer'
+import sharp from 'sharp'
+import { v4 as uuidv4 } from 'uuid'
+import { fileURLToPath } from 'url'
+import { dirname, join } from 'path'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+const uploadDir = join(__dirname, '..', '..', 'public', 'product-images')
+
+const upload = multer({
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) {
+      cb(new Error('只允许上传图片'))
+    } else {
+      cb(null, true)
+    }
+  }
+})
 
 const router = Router()
+
+router.post('/upload-image', authMiddleware, upload.single('image'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: '请上传图片' })
+  }
+
+  try {
+    const filename = `${uuidv4()}.webp`
+    const filepath = join(uploadDir, filename)
+
+    await sharp(req.file.buffer)
+      .webp({ quality: 75 })
+      .toFile(filepath)
+
+    const imageUrl = `/pet-garden/product-images/${filename}`
+    res.json({ imageUrl })
+  } catch (error) {
+    console.error('图片处理失败:', error)
+    res.status(500).json({ error: '图片处理失败' })
+  }
+})
 
 // 商品相关路由
 router.get('/products', authMiddleware, (req, res) => {

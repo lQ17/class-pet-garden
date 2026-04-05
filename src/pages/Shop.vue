@@ -18,9 +18,12 @@ const { confirmDialog, showConfirm, closeConfirm } = useConfirm()
 const products = ref<Product[]>([])
 const redemptions = ref<RedemptionRecord[]>([])
 const isLoading = ref(false)
+const uploadingImage = ref(false)
 const activeTab = ref<'products' | 'redemptions'>('products')
 
 const showProductModal = ref(false)
+const showImageViewer = ref(false)
+const viewingImageUrl = ref('')
 const editingProduct = ref<Product | null>(null)
 const productForm = ref({
   name: '',
@@ -105,6 +108,38 @@ async function saveProduct() {
   } catch (error: any) {
     toast.error(error.response?.data?.error || '保存失败')
   }
+}
+
+async function handleImageUpload(event: Event) {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+
+  uploadingImage.value = true
+  try {
+    const formData = new FormData()
+    formData.append('image', file)
+
+    const res = await api.post('/shop/upload-image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+
+    productForm.value.imageUrl = res.data.imageUrl
+    toast.success('图片上传成功')
+  } catch (error: any) {
+    toast.error(error.response?.data?.error || '图片上传失败')
+  } finally {
+    uploadingImage.value = false
+  }
+}
+
+function clearImage() {
+  productForm.value.imageUrl = ''
+}
+
+function openImageViewer(imageUrl: string) {
+  viewingImageUrl.value = imageUrl
+  showImageViewer.value = true
 }
 
 async function deleteProduct(productId: string) {
@@ -245,8 +280,14 @@ onMounted(async () => {
                   :key="product.id"
                   class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100 hover:shadow-md transition-all"
                 >
-                  <div class="h-32 bg-gradient-to-br from-orange-100 to-pink-100 flex items-center justify-center">
-                    <span class="text-5xl">🎁</span>
+                  <div class="h-48 bg-gradient-to-br from-orange-100 to-pink-100 flex items-center justify-center overflow-hidden cursor-pointer" @click="product.image_url && openImageViewer(product.image_url)">
+                    <img
+                      v-if="product.image_url"
+                      :src="product.image_url"
+                      :alt="product.name"
+                      class="w-full h-full object-contain"
+                    />
+                    <span v-else class="text-5xl">🎁</span>
                   </div>
                   <div class="p-4">
                     <div class="flex items-start justify-between mb-2">
@@ -297,8 +338,14 @@ onMounted(async () => {
                   :key="product.id"
                   class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100 opacity-60"
                 >
-                  <div class="h-32 bg-gray-100 flex items-center justify-center">
-                    <span class="text-5xl">🎁</span>
+                  <div class="h-48 bg-gray-100 flex items-center justify-center overflow-hidden cursor-pointer" @click="product.image_url && openImageViewer(product.image_url)">
+                    <img
+                      v-if="product.image_url"
+                      :src="product.image_url"
+                      :alt="product.name"
+                      class="w-full h-full object-contain"
+                    />
+                    <span v-else class="text-5xl">🎁</span>
                   </div>
                   <div class="p-4">
                     <div class="flex items-start justify-between mb-2">
@@ -380,6 +427,35 @@ onMounted(async () => {
               {{ editingProduct ? '✏️ 编辑商品' : '➕ 添加商品' }}
             </h3>
             <div class="space-y-4">
+              <div>
+                <label class="block text-sm text-gray-500 mb-1">商品图片</label>
+                <div class="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center">
+                  <div v-if="productForm.imageUrl" class="relative">
+                    <img :src="productForm.imageUrl" alt="商品图片" class="h-32 mx-auto rounded-lg object-cover" />
+                    <button 
+                      @click="clearImage"
+                      type="button"
+                      class="absolute top-1 right-1 bg-red-500 text-white w-6 h-6 rounded-full text-sm hover:bg-red-600"
+                    >✕</button>
+                  </div>
+                  <div v-else class="py-8">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      @change="handleImageUpload"
+                      class="hidden"
+                      id="productImage"
+                      :disabled="uploadingImage"
+                    />
+                    <label for="productImage" class="cursor-pointer">
+                      <div class="text-4xl mb-2">📷</div>
+                      <p class="text-sm text-gray-500">
+                        {{ uploadingImage ? '上传中...' : '点击或拖拽上传图片' }}
+                      </p>
+                    </label>
+                  </div>
+                </div>
+              </div>
               <div>
                 <label class="block text-sm text-gray-500 mb-1">商品名称 *</label>
                 <input
@@ -520,6 +596,28 @@ onMounted(async () => {
         @confirm="confirmDialog.onConfirm"
         @cancel="closeConfirm"
       />
+
+      <!-- 图片查看器 -->
+      <Transition name="modal">
+        <div
+          v-if="showImageViewer"
+          class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+          @click="showImageViewer = false"
+        >
+          <div class="max-w-full max-h-full relative">
+            <img
+              :src="viewingImageUrl"
+              alt="查看图片"
+              class="max-w-[90vw] max-h-[85vh] object-contain rounded-xl"
+              @click.stop
+            />
+            <button
+              @click="showImageViewer = false"
+              class="absolute top-4 right-4 w-10 h-10 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors flex items-center justify-center text-xl"
+            >✕</button>
+          </div>
+        </div>
+      </Transition>
     </div>
   </PageLayout>
 </template>
