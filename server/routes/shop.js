@@ -9,7 +9,17 @@ import { dirname, join } from 'path'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
-const uploadDir = join(__dirname, '..', '..', 'public', 'product-images')
+const uploadDirPublic = join(__dirname, '..', '..', 'public', 'product-images')
+const uploadDirDist = join(__dirname, '..', '..', 'dist', 'product-images')
+
+// 确保两个目录都存在
+import fs from 'fs'
+try {
+  if (!fs.existsSync(uploadDirPublic)) fs.mkdirSync(uploadDirPublic, { recursive: true })
+  if (!fs.existsSync(uploadDirDist)) fs.mkdirSync(uploadDirDist, { recursive: true })
+} catch (e) {
+  console.log('创建目录失败:', e)
+}
 
 const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
@@ -31,11 +41,20 @@ router.post('/upload-image', authMiddleware, upload.single('image'), async (req,
 
   try {
     const filename = `${uuidv4()}.webp`
-    const filepath = join(uploadDir, filename)
+    const filepathPublic = join(uploadDirPublic, filename)
+    const filepathDist = join(uploadDirDist, filename)
 
     await sharp(req.file.buffer)
       .webp({ quality: 75 })
-      .toFile(filepath)
+      .toFile(filepathPublic)
+    
+    try {
+      await sharp(req.file.buffer)
+        .webp({ quality: 75 })
+        .toFile(filepathDist)
+    } catch (e) {
+      console.log('保存到dist目录失败:', e)
+    }
 
     const imageUrl = `/pet-garden/product-images/${filename}`
     res.json({ imageUrl })

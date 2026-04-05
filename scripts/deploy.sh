@@ -25,7 +25,13 @@ npm run build
 echo "📤 部署到服务器..."
 rsync -avz --delete $PROJECT_DIR/dist/ $SERVER_USER@$SERVER_HOST:$SERVER_PATH/
 
-# 5. 确保服务器文件权限正确
+# 5. 复制商品图片目录（如果存在）
+if [ -d "$PROJECT_DIR/public/product-images" ]; then
+  echo "📷 复制商品图片..."
+  rsync -avz $PROJECT_DIR/public/product-images/ $SERVER_USER@$SERVER_HOST:$SERVER_PATH/product-images/
+fi
+
+# 6. 确保服务器文件权限正确
 echo "🔧 设置文件权限..."
 ssh $SERVER_USER@$SERVER_HOST "chown -R www-data:www-data $SERVER_PATH && chmod -R 755 $SERVER_PATH"
 
