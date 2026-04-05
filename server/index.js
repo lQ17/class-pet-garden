@@ -1,6 +1,11 @@
 import express from 'express'
 import cors from 'cors'
 import { v4 as uuidv4 } from 'uuid'
+import { fileURLToPath } from 'url'
+import { dirname, join } from 'path'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
 import { initDb, db } from './db.js'
 import { calculateLevel } from './utils/level.js'
@@ -26,6 +31,11 @@ const PORT = 3002
 // Middleware
 app.use(cors())
 app.use(express.json())
+
+// 静态文件服务 - 商品图片
+const productImagesDir = join(__dirname, '..', 'public', 'product-images')
+app.use('/product-images', express.static(productImagesDir))
+app.use('/pet-garden/product-images', express.static(productImagesDir))
 
 // 初始化数据库
 initDb()
