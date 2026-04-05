@@ -32,6 +32,14 @@ fi
 echo "🌐 步骤 3/4: 正在发布前端静态资源..."
 sudo rm -rf $NGINX_DIR/*
 sudo cp -r dist/* $NGINX_DIR/
+
+# 复制商品图片到 Nginx 目录
+if [ -d "$PROJECT_DIR/public/product-images" ]; then
+  echo "📷 复制商品图片..."
+  sudo mkdir -p $NGINX_DIR/product-images
+  sudo cp -r $PROJECT_DIR/public/product-images/* $NGINX_DIR/product-images/
+fi
+
 sudo chown -R www-data:www-data $NGINX_DIR
 sudo chmod -R 755 $NGINX_DIR
 
