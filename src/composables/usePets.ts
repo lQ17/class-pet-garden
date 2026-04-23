@@ -35,11 +35,20 @@ export function usePets() {
     hasLoaded.value = false
   }
 
+  async function deleteCustomPet(petId: string, force = false) {
+    const res = await api.delete(`/pets/${petId}`, {
+      params: force ? { force: true } : undefined
+    })
+    await loadCustomPets(true)
+    return res.data
+  }
+
   return {
     pets: computed(() => PET_TYPES.value),
     isLoading: computed(() => isLoading.value),
     hasLoaded: computed(() => hasLoaded.value),
     loadCustomPets,
+    deleteCustomPet,
     clearPets
   }
 }

@@ -9,6 +9,7 @@ import { getProductImageUrl, productImagesDir } from '../utils/productImages.js'
 
 const router = Router()
 const MAX_PET_IMAGE_SIZE = 8 * 1024 * 1024
+const FALLBACK_PET_TYPE = 'orange-cat'
 
 const upload = multer({
   limits: {
@@ -120,6 +121,63 @@ router.post('/', authMiddleware, teacherMiddleware, upload.array('images', 8), a
   } catch (error) {
     console.error('创建自定义宠物失败:', error)
     res.status(500).json({ error: '创建宠物失败，请稍后重试' })
+  }
+})
+
+router.delete('/:id', authMiddleware, teacherMiddleware, (req, res) => {
+  const petId = req.params.id
+  const forceDelete = req.query.force === 'true' || req.query.force === '1'
+
+  const pet = db.prepare(`
+    SELECT id, name
+    FROM custom_pets
+    WHERE id = ? AND user_id = ?
+  `).get(petId, req.userId)
+
+  if (!pet) {
+    return res.status(404).json({ error: '宠物不存在或无权删除' })
+  }
+
+  const usage = db.prepare(`
+    SELECT COUNT(*) as count
+    FROM students s
+    JOIN classes c ON s.class_id = c.id
+    WHERE c.user_id = ? AND s.pet_type = ?
+  `).get(req.userId, petId)
+  const studentCount = usage?.count || 0
+
+  if (studentCount > 0 && !forceDelete) {
+    return res.status(409).json({
+      error: `该宠物正在被 ${studentCount} 名学生使用`,
+      inUse: true,
+      studentCount
+    })
+  }
+
+  db.prepare('BEGIN TRANSACTION').run()
+  try {
+    if (studentCount > 0) {
+      db.prepare(`
+        UPDATE students
+        SET pet_type = ?
+        WHERE pet_type = ?
+          AND class_id IN (SELECT id FROM classes WHERE user_id = ?)
+      `).run(FALLBACK_PET_TYPE, petId, req.userId)
+    }
+
+    db.prepare('DELETE FROM custom_pets WHERE id = ? AND user_id = ?').run(petId, req.userId)
+    db.prepare('COMMIT').run()
+
+    res.json({
+      success: true,
+      deleted: petId,
+      replacedStudents: studentCount > 0 ? studentCount : 0,
+      fallbackPetType: FALLBACK_PET_TYPE
+    })
+  } catch (error) {
+    db.prepare('ROLLBACK').run()
+    console.error('删除自定义宠物失败:', error)
+    res.status(500).json({ error: '删除宠物失败，请稍后重试' })
   }
 })
 

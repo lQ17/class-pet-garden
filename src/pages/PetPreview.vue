@@ -4,12 +4,14 @@ import { getPetLevelImage } from '@/data/pets'
 import type { PetType } from '@/data/pets'
 import { useAuth } from '@/composables/useAuth'
 import { usePets } from '@/composables/usePets'
+import { useToast } from '@/composables/useToast'
 import PetImage from '@/components/PetImage.vue'
 import PageLayout from '@/components/layout/PageLayout.vue'
 import CreatePetModal from '@/components/modals/CreatePetModal.vue'
 
 const { user, isAdmin } = useAuth()
-const { pets, loadCustomPets } = usePets()
+const { pets, loadCustomPets, deleteCustomPet } = usePets()
+const toast = useToast()
 
 const categories = [
   { id: 'all', name: '全部' },
@@ -21,6 +23,7 @@ const currentCategory = ref('all')
 const selectedPet = ref<string | null>(null)
 const selectedLevel = ref(1)
 const showCreateModal = ref(false)
+const deletingPet = ref(false)
 
 const normalPets = computed(() => pets.value.filter(p => p.category === 'normal'))
 const mythicalPets = computed(() => pets.value.filter(p => p.category === 'mythical'))
@@ -72,6 +75,43 @@ async function handleCreated(pet: PetType) {
   await loadCustomPets(true)
   currentCategory.value = pet.category
   selectPet(pet.id)
+}
+
+async function handleDeletePet() {
+  if (!selectedPet.value || !selectedPetData.value?.isCustom || deletingPet.value) return
+
+  const petId = selectedPet.value
+  const petName = selectedPetData.value.name
+  if (!window.confirm(`确定删除「${petName}」吗？`)) return
+
+  deletingPet.value = true
+  try {
+    const result = await deleteCustomPet(petId)
+    toast.success(result.replacedStudents > 0
+      ? `已删除宠物，并将 ${result.replacedStudents} 名学生替换为橘猫`
+      : '宠物已删除')
+    closeDetail()
+  } catch (error: any) {
+    if (error.response?.status === 409 && error.response?.data?.inUse) {
+      const studentCount = error.response.data.studentCount || 0
+      const confirmed = window.confirm(`「${petName}」正在被 ${studentCount} 名学生使用。是否强制删除，并将这些学生的宠物替换为橘猫？`)
+
+      if (!confirmed) return
+
+      try {
+        const result = await deleteCustomPet(petId, true)
+        toast.success(`已强制删除宠物，并将 ${result.replacedStudents} 名学生替换为橘猫`)
+        closeDetail()
+      } catch (forceError: any) {
+        toast.error(forceError.response?.data?.error || '强制删除宠物失败')
+      }
+      return
+    }
+
+    toast.error(error.response?.data?.error || '删除宠物失败')
+  } finally {
+    deletingPet.value = false
+  }
 }
 </script>
 
@@ -180,6 +220,15 @@ async function handleCreated(pet: PetType) {
                     <span class="font-bold text-gray-800">{{ selectedPetData.isCustom ? '老师自定义' : '系统内置' }}</span>
                   </div>
                 </div>
+
+                <button
+                  v-if="canManagePets && selectedPetData.isCustom"
+                  class="mt-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-3 font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  :disabled="deletingPet"
+                  @click="handleDeletePet"
+                >
+                  {{ deletingPet ? '删除中...' : '删除该宠物' }}
+                </button>
               </div>
             </div>
 
