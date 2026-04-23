@@ -10,6 +10,7 @@ const __dirname = dirname(__filename)
 import { initDb, db } from './db.js'
 import { calculateLevel } from './utils/level.js'
 import { hashPassword } from './utils/password.js'
+import { productImagesDir, productImagesUrlPrefix } from './utils/productImages.js'
 
 // 导入路由
 import authRoutes from './routes/auth.js'
@@ -33,9 +34,8 @@ app.use(cors())
 app.use(express.json())
 
 // 静态文件服务 - 商品图片
-const productImagesDir = join(__dirname, '..', 'public', 'product-images')
 app.use('/product-images', express.static(productImagesDir))
-app.use('/pet-garden/product-images', express.static(productImagesDir))
+app.use(productImagesUrlPrefix, express.static(productImagesDir))
 
 // 初始化数据库
 initDb()

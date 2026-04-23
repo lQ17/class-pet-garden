@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { calculateLevel, getLevelProgress, LEVEL_CONFIG } from '../utils/level.js'
+import { getProductImageUrl, productImagesUrlPrefix } from '../utils/productImages.js'
 
 describe('Level Utils', () => {
   describe('calculateLevel', () => {
@@ -108,5 +109,15 @@ describe('Token Utils', () => {
     expect(verifyToken('invalid-token')).toBeNull()
     expect(verifyToken('')).toBeNull()
     expect(verifyToken(null)).toBeNull()
+  })
+})
+
+describe('Product Image Utils', () => {
+  it('should normalize the image URL prefix', () => {
+    expect(productImagesUrlPrefix.endsWith('/')).toBe(false)
+  })
+
+  it('should build image URLs with the configured prefix', () => {
+    expect(getProductImageUrl('demo.webp')).toBe(`${productImagesUrlPrefix}/demo.webp`)
   })
 })

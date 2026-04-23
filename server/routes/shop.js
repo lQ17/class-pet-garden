@@ -4,19 +4,8 @@ import { authMiddleware } from '../middleware/auth.js'
 import multer from 'multer'
 import sharp from 'sharp'
 import { v4 as uuidv4 } from 'uuid'
-import { fileURLToPath } from 'url'
-import { dirname, join } from 'path'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-const uploadDir = join(__dirname, '..', '..', 'public', 'product-images')
-
-import fs from 'fs'
-try {
-  if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true })
-} catch (e) {
-  console.log('创建目录失败:', e)
-}
+import { join } from 'path'
+import { getProductImageUrl, productImagesDir } from '../utils/productImages.js'
 
 const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
@@ -38,13 +27,13 @@ router.post('/upload-image', authMiddleware, upload.single('image'), async (req,
 
   try {
     const filename = `${uuidv4()}.webp`
-    const filepath = join(uploadDir, filename)
+    const filepath = join(productImagesDir, filename)
 
     await sharp(req.file.buffer)
       .webp({ quality: 75 })
       .toFile(filepath)
 
-    const imageUrl = `/pet-garden/product-images/${filename}`
+    const imageUrl = getProductImageUrl(filename)
     res.json({ imageUrl })
   } catch (error) {
     console.error('图片处理失败:', error)
@@ -177,17 +166,17 @@ router.post('/redeem', authMiddleware, (req, res) => {
   try {
     // 扣除可用积分
     db.prepare('UPDATE students SET usable_points = usable_points - ? WHERE id = ?').run(product.price, studentId)
-    
+
     // 减少库存（如果不是无限库存）
     if (product.stock !== -1) {
       db.prepare('UPDATE products SET stock = stock - 1 WHERE id = ?').run(productId)
     }
-    
+
     // 记录兑换
     db.prepare(
       'INSERT INTO redemption_records (id, user_id, student_id, product_id, product_name, price, redeemed_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
     ).run(id, req.userId, studentId, productId, product.name, product.price, now)
-    
+
     db.prepare('COMMIT').run()
     res.json({ id, success: true })
   } catch (error) {
