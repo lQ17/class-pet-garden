@@ -8,6 +8,7 @@ import { useToast } from '@/composables/useToast'
 import PetImage from '@/components/PetImage.vue'
 import PageLayout from '@/components/layout/PageLayout.vue'
 import CreatePetModal from '@/components/modals/CreatePetModal.vue'
+import EditPetImagesModal from '@/components/modals/EditPetImagesModal.vue'
 
 const { user, isAdmin } = useAuth()
 const { pets, loadCustomPets, deleteCustomPet } = usePets()
@@ -23,6 +24,7 @@ const currentCategory = ref('all')
 const selectedPet = ref<string | null>(null)
 const selectedLevel = ref(1)
 const showCreateModal = ref(false)
+const showEditImagesModal = ref(false)
 const deletingPet = ref(false)
 
 const normalPets = computed(() => pets.value.filter(p => p.category === 'normal'))
@@ -69,12 +71,17 @@ function selectPet(petId: string) {
 
 function closeDetail() {
   selectedPet.value = null
+  showEditImagesModal.value = false
 }
 
 async function handleCreated(pet: PetType) {
   await loadCustomPets(true)
   currentCategory.value = pet.category
   selectPet(pet.id)
+}
+
+async function handleImagesUpdated() {
+  await loadCustomPets(true)
 }
 
 async function handleDeletePet() {
@@ -222,8 +229,16 @@ async function handleDeletePet() {
                 </div>
 
                 <button
+                  v-if="canManagePets"
+                  class="mt-6 rounded-2xl bg-gradient-to-r from-orange-500 to-pink-500 px-5 py-3 font-semibold text-white shadow-lg transition hover:scale-[1.02]"
+                  @click="showEditImagesModal = true"
+                >
+                  修改等级图片
+                </button>
+
+                <button
                   v-if="canManagePets && selectedPetData.isCustom"
-                  class="mt-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-3 font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  class="mt-3 rounded-2xl border border-red-200 bg-red-50 px-5 py-3 font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                   :disabled="deletingPet"
                   @click="handleDeletePet"
                 >
@@ -250,6 +265,12 @@ async function handleDeletePet() {
     </Transition>
 
     <CreatePetModal :show="showCreateModal" @close="showCreateModal = false" @created="handleCreated" />
+    <EditPetImagesModal
+      :show="showEditImagesModal"
+      :pet="selectedPetData"
+      @close="showEditImagesModal = false"
+      @updated="handleImagesUpdated"
+    />
   </PageLayout>
 </template>
 

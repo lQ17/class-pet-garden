@@ -33,6 +33,8 @@ router.get('/', authMiddleware, (req, res) => {
       JOIN users u ON rr.user_id = u.id
       WHERE u.id = ?
     `).all(req.userId),
+    customPets: db.prepare('SELECT * FROM custom_pets WHERE user_id = ?').all(req.userId),
+    petImageOverrides: db.prepare('SELECT * FROM pet_image_overrides WHERE user_id = ?').all(req.userId),
     settings: db.prepare('SELECT * FROM settings').all()
   }
   res.setHeader('Content-Disposition', `attachment; filename="pet-garden-backup-${Date.now()}.json"`)
@@ -41,7 +43,7 @@ router.get('/', authMiddleware, (req, res) => {
 
 // 导入备份
 router.post('/', authMiddleware, (req, res) => {
-  const { classes, students, rules, records, badges, products, redemptions, settings } = req.body
+  const { classes, students, rules, records, badges, products, redemptions, customPets, petImageOverrides, settings } = req.body
 
   if (!classes || !students) {
     return res.status(400).json({ error: 'Invalid backup data' })
@@ -51,6 +53,8 @@ router.post('/', authMiddleware, (req, res) => {
     // Clear existing data for current user
     db.prepare('DELETE FROM redemption_records WHERE user_id = ?').run(req.userId)
     db.prepare('DELETE FROM products WHERE user_id = ?').run(req.userId)
+    db.prepare('DELETE FROM pet_image_overrides WHERE user_id = ?').run(req.userId)
+    db.prepare('DELETE FROM custom_pets WHERE user_id = ?').run(req.userId)
     db.prepare('DELETE FROM evaluation_records WHERE class_id IN (SELECT id FROM classes WHERE user_id = ?)').run(req.userId)
     db.prepare('DELETE FROM badges WHERE student_id IN (SELECT s.id FROM students s JOIN classes c ON s.class_id = c.id WHERE c.user_id = ?)').run(req.userId)
     db.prepare('DELETE FROM students WHERE class_id IN (SELECT id FROM classes WHERE user_id = ?)').run(req.userId)
@@ -113,6 +117,22 @@ router.post('/', authMiddleware, (req, res) => {
           p.stock, p.image_url, p.is_enabled, p.sort_order, 
           p.created_at, p.updated_at
         )
+      }
+    }
+
+    // Restore custom pets
+    if (customPets) {
+      const insertCustomPet = db.prepare('INSERT INTO custom_pets (id, user_id, name, category, level_images, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      for (const pet of customPets) {
+        insertCustomPet.run(pet.id, req.userId, pet.name, pet.category, pet.level_images, pet.created_at, pet.updated_at)
+      }
+    }
+
+    // Restore pet image overrides
+    if (petImageOverrides) {
+      const insertOverride = db.prepare('INSERT INTO pet_image_overrides (id, user_id, pet_id, level_images, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
+      for (const override of petImageOverrides) {
+        insertOverride.run(override.id, req.userId, override.pet_id, override.level_images, override.created_at, override.updated_at)
       }
     }
 

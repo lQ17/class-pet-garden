@@ -212,6 +212,17 @@ export function initDb() {
       updated_at INTEGER,
       FOREIGN KEY (user_id) REFERENCES users(id)
     );
+
+    CREATE TABLE IF NOT EXISTS pet_image_overrides (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      pet_id TEXT NOT NULL,
+      level_images TEXT NOT NULL,
+      created_at INTEGER,
+      updated_at INTEGER,
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      UNIQUE(user_id, pet_id)
+    );
   `)
 
   // 迁移：添加 pet_status 字段（如果不存在）

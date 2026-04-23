@@ -10,6 +10,34 @@ import { getProductImageUrl, productImagesDir } from '../utils/productImages.js'
 const router = Router()
 const MAX_PET_IMAGE_SIZE = 8 * 1024 * 1024
 const FALLBACK_PET_TYPE = 'orange-cat'
+const STATIC_PET_IDS = new Set([
+  'west-highland',
+  'bichon',
+  'border-collie',
+  'shiba',
+  'golden-retriever',
+  'samoyed',
+  'husky',
+  'tabby-cat',
+  'persian-cat',
+  'ragdoll-cat',
+  'orange-cat',
+  'lop-rabbit',
+  'angora-rabbit',
+  'hamster',
+  'winter-hamster',
+  'call-duck',
+  'alpaca',
+  'red-panda',
+  'corgi',
+  'white-tiger',
+  'unicorn',
+  'azure-dragon',
+  'vermilion-bird',
+  'succulent-spirit',
+  'pixiu',
+  'suanni'
+])
 
 const upload = multer({
   limits: {
@@ -28,22 +56,63 @@ const upload = multer({
 
 function buildPetFromRecord(record) {
   const rawImages = JSON.parse(record.level_images)
-  const levelImages = {}
-
-  rawImages.forEach((url, index) => {
-    levelImages[index + 1] = url
-  })
 
   return {
     id: record.id,
     name: record.name,
     category: record.category,
     image: rawImages[0] || '',
-    levelImages,
+    levelImages: toLevelImagesObject(rawImages),
     isCustom: true,
     createdAt: record.created_at,
     updatedAt: record.updated_at
   }
+}
+
+function toLevelImagesObject(images) {
+  const levelImages = {}
+
+  images.forEach((url, index) => {
+    levelImages[index + 1] = url
+  })
+
+  return levelImages
+}
+
+function getStaticLevelImages(petId) {
+  return Array.from({ length: 8 }, (_, index) => `/pet-garden/pets/${petId}/lv${index + 1}.png`)
+}
+
+function getExistingOverrideImages(userId, petId) {
+  const override = db.prepare(`
+    SELECT level_images
+    FROM pet_image_overrides
+    WHERE user_id = ? AND pet_id = ?
+  `).get(userId, petId)
+
+  return override ? JSON.parse(override.level_images) : null
+}
+
+function normalizeArray(value) {
+  if (Array.isArray(value)) return value
+  if (value === undefined || value === null) return []
+  return [value]
+}
+
+async function savePetImage(file) {
+  const filename = `${uuidv4()}.webp`
+  const filepath = join(productImagesDir, filename)
+
+  await sharp(file.buffer)
+    .rotate()
+    .resize(1200, 1200, {
+      fit: 'inside',
+      withoutEnlargement: true
+    })
+    .webp({ quality: 80 })
+    .toFile(filepath)
+
+  return getProductImageUrl(filename)
 }
 
 router.get('/', authMiddleware, (req, res) => {
@@ -53,9 +122,20 @@ router.get('/', authMiddleware, (req, res) => {
     WHERE user_id = ?
     ORDER BY created_at DESC
   `).all(req.userId)
+  const overrides = db.prepare(`
+    SELECT pet_id, level_images
+    FROM pet_image_overrides
+    WHERE user_id = ?
+  `).all(req.userId)
+  const imageOverrides = {}
+
+  for (const override of overrides) {
+    imageOverrides[override.pet_id] = toLevelImagesObject(JSON.parse(override.level_images))
+  }
 
   res.json({
-    pets: pets.map(buildPetFromRecord)
+    pets: pets.map(buildPetFromRecord),
+    imageOverrides
   })
 })
 
@@ -80,19 +160,7 @@ router.post('/', authMiddleware, teacherMiddleware, upload.array('images', 8), a
     const levelImageUrls = []
 
     for (const file of files) {
-      const filename = `${uuidv4()}.webp`
-      const filepath = join(productImagesDir, filename)
-
-      await sharp(file.buffer)
-        .rotate()
-        .resize(1200, 1200, {
-          fit: 'inside',
-          withoutEnlargement: true
-        })
-        .webp({ quality: 80 })
-        .toFile(filepath)
-
-      levelImageUrls.push(getProductImageUrl(filename))
+      levelImageUrls.push(await savePetImage(file))
     }
 
     const petId = `custom-${uuidv4()}`
@@ -121,6 +189,73 @@ router.post('/', authMiddleware, teacherMiddleware, upload.array('images', 8), a
   } catch (error) {
     console.error('创建自定义宠物失败:', error)
     res.status(500).json({ error: '创建宠物失败，请稍后重试' })
+  }
+})
+
+router.put('/:id/images', authMiddleware, teacherMiddleware, upload.array('images', 8), async (req, res) => {
+  const petId = req.params.id
+  const files = req.files || []
+  const levels = normalizeArray(req.body.levels).map(level => Number(level))
+
+  if (!Array.isArray(files) || files.length === 0) {
+    return res.status(400).json({ error: '请至少选择一张要替换的等级图片' })
+  }
+
+  if (files.length !== levels.length || levels.some(level => !Number.isInteger(level) || level < 1 || level > 8)) {
+    return res.status(400).json({ error: '等级图片参数不合法' })
+  }
+
+  const customPet = db.prepare(`
+    SELECT id, name, category, level_images, created_at, updated_at
+    FROM custom_pets
+    WHERE id = ? AND user_id = ?
+  `).get(petId, req.userId)
+
+  if (!customPet && !STATIC_PET_IDS.has(petId)) {
+    return res.status(404).json({ error: '宠物不存在或无权修改' })
+  }
+
+  try {
+    const currentImages = customPet
+      ? JSON.parse(customPet.level_images)
+      : (getExistingOverrideImages(req.userId, petId) || getStaticLevelImages(petId))
+
+    for (let index = 0; index < files.length; index++) {
+      currentImages[levels[index] - 1] = await savePetImage(files[index])
+    }
+
+    const now = Date.now()
+    const levelImagesJson = JSON.stringify(currentImages)
+
+    if (customPet) {
+      db.prepare(`
+        UPDATE custom_pets
+        SET level_images = ?, updated_at = ?
+        WHERE id = ? AND user_id = ?
+      `).run(levelImagesJson, now, petId, req.userId)
+
+      const updatedPet = db.prepare(`
+        SELECT id, name, category, level_images, created_at, updated_at
+        FROM custom_pets
+        WHERE id = ? AND user_id = ?
+      `).get(petId, req.userId)
+
+      res.json({ pet: buildPetFromRecord(updatedPet), levelImages: toLevelImagesObject(currentImages) })
+      return
+    }
+
+    db.prepare(`
+      INSERT INTO pet_image_overrides (id, user_id, pet_id, level_images, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(user_id, pet_id) DO UPDATE SET
+        level_images = excluded.level_images,
+        updated_at = excluded.updated_at
+    `).run(uuidv4(), req.userId, petId, levelImagesJson, now, now)
+
+    res.json({ petId, levelImages: toLevelImagesObject(currentImages) })
+  } catch (error) {
+    console.error('更新宠物图片失败:', error)
+    res.status(500).json({ error: '更新宠物图片失败，请稍后重试' })
   }
 })
 

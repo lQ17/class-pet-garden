@@ -56,18 +56,50 @@ export const STATIC_PET_TYPES: PetType[] = [
 ]
 
 const customPetTypes = ref<PetType[]>([])
+const petImageOverrides = ref<Record<string, Record<number, string>>>({})
 
 export const PET_TYPES = computed(() => {
-  const customPets = [...customPetTypes.value].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
-  return [...customPets, ...STATIC_PET_TYPES]
+  const customPets = [...customPetTypes.value]
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+    .map(applyPetImageOverride)
+  const staticPets = STATIC_PET_TYPES.map(applyPetImageOverride)
+  return [...customPets, ...staticPets]
 })
 
 export function setCustomPetTypes(pets: PetType[]) {
   customPetTypes.value = pets
 }
 
+export function setPetImageOverrides(overrides: Record<string, Record<number, string>>) {
+  petImageOverrides.value = overrides || {}
+}
+
+export function updatePetImageOverride(petId: string, levelImages: Record<number, string>) {
+  petImageOverrides.value = {
+    ...petImageOverrides.value,
+    [petId]: levelImages
+  }
+}
+
+function applyPetImageOverride(pet: PetType): PetType {
+  const override = petImageOverrides.value[pet.id]
+  if (!override) return pet
+
+  const levelImages = {
+    ...(pet.levelImages || {}),
+    ...override
+  }
+
+  return {
+    ...pet,
+    image: levelImages[1] || pet.image,
+    levelImages
+  }
+}
+
 export function clearCustomPetTypes() {
   customPetTypes.value = []
+  petImageOverrides.value = {}
 }
 
 export function getAllPetTypes(): PetType[] {
