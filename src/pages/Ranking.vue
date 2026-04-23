@@ -9,7 +9,9 @@ import PageLayout from '@/components/layout/PageLayout.vue'
 const { classes, currentClass } = useClasses()
 const { api } = useAuth()
 
-const ranking = ref<(Student & { rank: number; isTop3: boolean })[]>([])
+type RankedStudent = Student & { rank: number; isTop3: boolean }
+
+const ranking = ref<RankedStudent[]>([])
 const isLoading = ref(true)
 
 // 时间段相关
@@ -91,6 +93,38 @@ const crowd = computed(() => ranking.value.slice(5, 20))
 // 检查是否是零分学生
 function isZeroScore(student: any): boolean {
   return student.total_points === 0
+}
+
+function isMedalRank(student: RankedStudent | null): boolean {
+  return !!student && !isZeroScore(student) && student.rank <= 3
+}
+
+function isFirstRank(student: RankedStudent | null): boolean {
+  return !!student && !isZeroScore(student) && student.rank === 1
+}
+
+function getRankMedal(student: RankedStudent | null): string {
+  if (!student) return ''
+  if (student.rank === 1) return String.fromCodePoint(0x1f947)
+  if (student.rank === 2) return String.fromCodePoint(0x1f948)
+  if (student.rank === 3) return String.fromCodePoint(0x1f949)
+  return ''
+}
+
+function getCrownIcon(): string {
+  return String.fromCodePoint(0x1f451)
+}
+
+function getRankBadgeClass(student: RankedStudent | null): string {
+  return isFirstRank(student) ? 'rank-badge gold' : 'rank-badge'
+}
+
+function getPedestalClass(student: RankedStudent | null): string {
+  if (!student || isZeroScore(student)) return 'low'
+  if (student.rank === 1) return 'gold-block'
+  if (student.rank === 2) return 'silver'
+  if (student.rank === 3) return 'bronze'
+  return 'low'
 }
 
 function getDisplayLevel(student: Student): number {
@@ -230,13 +264,16 @@ watch(currentClass, () => {
                 <!-- 第四名 -->
                 <div class="podium-place fourth" v-if="podiumOrder[0]">
                   <div class="pedestal">
+                    <div v-if="isMedalRank(podiumOrder[0])" :class="getRankBadgeClass(podiumOrder[0])">
+                      <span>{{ getRankMedal(podiumOrder[0]) }}</span>
+                    </div>
                     <div class="pet-avatar small">
                       <img v-if="podiumOrder[0].pet_type" :src="getStudentPetImage(podiumOrder[0])" class="pet-image" />
                       <span v-else class="pet-placeholder small">🥚</span>      
                     </div>
                     <div class="student-name small">{{ podiumOrder[0].name }}</div>
                     <div class="student-points small">⭐{{ podiumOrder[0].total_points }}</div>
-                    <div class="pedestal-block low">
+                    <div :class="'pedestal-block ' + getPedestalClass(podiumOrder[0])">
                       <span v-if="!isZeroScore(podiumOrder[0])" class="rank-number small">#{{ podiumOrder[0].rank }}</span>
                     </div>
                   </div>
@@ -245,22 +282,20 @@ watch(currentClass, () => {
                 <!-- 第二名 -->
                 <div class="podium-place second" v-if="podiumOrder[1]">
                   <div class="pedestal">
-                    <div v-if="podiumOrder[1].rank <= 3" class="rank-badge">
-                      <span v-if="podiumOrder[1].rank === 1">🥇</span>
-                      <span v-else-if="podiumOrder[1].rank === 2">🥈</span>
-                      <span v-else-if="podiumOrder[1].rank === 3">🥉</span>
+                    <div v-if="isMedalRank(podiumOrder[1])" :class="getRankBadgeClass(podiumOrder[1])">
+                      <span>{{ getRankMedal(podiumOrder[1]) }}</span>
                     </div>
                     <div class="pet-avatar">
                       <img v-if="podiumOrder[1].pet_type" :src="getStudentPetImage(podiumOrder[1])" class="pet-image" />
                       <span v-else class="pet-placeholder">🥚</span>
                     </div>
-                    <div class="student-name">{{ podiumOrder[1].name }}</div>     
+                    <div class="student-name" :class="{ champion: isFirstRank(podiumOrder[1]) }">{{ podiumOrder[1].name }}</div>     
                     <div class="student-level">Lv.{{ getDisplayLevel(podiumOrder[1]) }}</div>
-                    <div class="student-points">
+                    <div class="student-points" :class="{ 'champion-points': isFirstRank(podiumOrder[1]) }">
                       <span class="points-star">⭐</span>
                       {{ podiumOrder[1].total_points }}
                     </div>
-                    <div class="pedestal-block silver">
+                    <div :class="'pedestal-block ' + getPedestalClass(podiumOrder[1])">
                       <span v-if="!isZeroScore(podiumOrder[1])" class="rank-number">#{{ podiumOrder[1].rank }}</span>
                     </div>
                   </div>
@@ -269,48 +304,44 @@ watch(currentClass, () => {
                 <!-- 第一名 -->
                 <div class="podium-place first" v-if="podiumOrder[2]">
                   <div class="pedestal">
-                    <div v-if="podiumOrder[2].rank === 1" class="crown">👑</div>
-                    <div v-if="podiumOrder[2].rank <= 3" class="rank-badge gold">
-                      <span v-if="podiumOrder[2].rank === 1">🥇</span>
-                      <span v-else-if="podiumOrder[2].rank === 2">🥈</span>
-                      <span v-else-if="podiumOrder[2].rank === 3">🥉</span>
+                    <div v-if="isFirstRank(podiumOrder[2])" class="crown">{{ getCrownIcon() }}</div>
+                    <div v-if="isMedalRank(podiumOrder[2])" :class="getRankBadgeClass(podiumOrder[2])">
+                      <span>{{ getRankMedal(podiumOrder[2]) }}</span>
                     </div>
                     <div class="pet-avatar large">
                       <img v-if="podiumOrder[2].pet_type" :src="getStudentPetImage(podiumOrder[2])" class="pet-image" />
                       <span v-else class="pet-placeholder large">🥚</span>      
                     </div>
-                    <div class="student-name champion">{{ podiumOrder[2].name }}</div>
+                    <div class="student-name" :class="{ champion: isFirstRank(podiumOrder[2]) }">{{ podiumOrder[2].name }}</div>
                     <div class="student-level">Lv.{{ getDisplayLevel(podiumOrder[2]) }}</div>
-                    <div class="student-points champion-points">
+                    <div class="student-points" :class="{ 'champion-points': isFirstRank(podiumOrder[2]) }">
                       <span class="points-star">⭐</span>
                       {{ podiumOrder[2].total_points }}
                     </div>
-                    <div class="pedestal-block gold-block">
+                    <div :class="'pedestal-block ' + getPedestalClass(podiumOrder[2])">
                       <span v-if="!isZeroScore(podiumOrder[2])" class="rank-number">#{{ podiumOrder[2].rank }}</span>
                     </div>
                   </div>
-                  <div class="spotlight"></div>
+                  <div v-if="isFirstRank(podiumOrder[2])" class="spotlight"></div>
                 </div>
 
                 <!-- 第三名 -->
                 <div class="podium-place third" v-if="podiumOrder[3]">
                   <div class="pedestal">
-                    <div v-if="podiumOrder[3].rank <= 3" class="rank-badge">
-                      <span v-if="podiumOrder[3].rank === 1">🥇</span>
-                      <span v-else-if="podiumOrder[3].rank === 2">🥈</span>
-                      <span v-else-if="podiumOrder[3].rank === 3">🥉</span>
+                    <div v-if="isMedalRank(podiumOrder[3])" :class="getRankBadgeClass(podiumOrder[3])">
+                      <span>{{ getRankMedal(podiumOrder[3]) }}</span>
                     </div>
                     <div class="pet-avatar">
                       <img v-if="podiumOrder[3].pet_type" :src="getStudentPetImage(podiumOrder[3])" class="pet-image" />
                       <span v-else class="pet-placeholder">🥚</span>
                     </div>
-                    <div class="student-name">{{ podiumOrder[3].name }}</div>     
+                    <div class="student-name" :class="{ champion: isFirstRank(podiumOrder[3]) }">{{ podiumOrder[3].name }}</div>     
                     <div class="student-level">Lv.{{ getDisplayLevel(podiumOrder[3]) }}</div>
-                    <div class="student-points">
+                    <div class="student-points" :class="{ 'champion-points': isFirstRank(podiumOrder[3]) }">
                       <span class="points-star">⭐</span>
                       {{ podiumOrder[3].total_points }}
                     </div>
-                    <div class="pedestal-block bronze">
+                    <div :class="'pedestal-block ' + getPedestalClass(podiumOrder[3])">
                       <span v-if="!isZeroScore(podiumOrder[3])" class="rank-number">#{{ podiumOrder[3].rank }}</span>
                     </div>
                   </div>
@@ -325,7 +356,7 @@ watch(currentClass, () => {
                     </div>
                     <div class="student-name small">{{ podiumOrder[4].name }}</div>
                     <div class="student-points small">⭐{{ podiumOrder[4].total_points }}</div>
-                    <div class="pedestal-block low">
+                    <div :class="'pedestal-block ' + getPedestalClass(podiumOrder[4])">
                       <span v-if="!isZeroScore(podiumOrder[4])" class="rank-number small">#{{ podiumOrder[4].rank }}</span>
                     </div>
                   </div>
