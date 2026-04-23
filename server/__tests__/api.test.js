@@ -77,6 +77,7 @@ function initTestDb() {
       class_id TEXT NOT NULL,
       student_id TEXT NOT NULL,
       points INTEGER NOT NULL,
+      usable_delta INTEGER,
       reason TEXT NOT NULL,
       category TEXT NOT NULL,
       timestamp INTEGER,
@@ -305,5 +306,73 @@ describe('Rules API', () => {
     expect(res.status).toBe(200)
     expect(res.body.rules).toBeInstanceOf(Array)
     expect(res.body.rules.length).toBeGreaterThan(0)
+  })
+})
+
+describe('Evaluations API', () => {
+  let token, classId, studentId
+
+  beforeEach(async () => {
+    const username = `eval-${uuidv4().slice(0, 8)}`
+    const registerRes = await request(app)
+      .post('/api/auth/register')
+      .send({ username, password: 'password123' })
+    token = registerRes.body.token
+
+    const classRes = await request(app)
+      .post('/api/classes')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: '评价测试班级' })
+    classId = classRes.body.id
+
+    const studentRes = await request(app)
+      .post('/api/students')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ classId, name: '测试学生', studentNo: '001' })
+    studentId = studentRes.body.id
+  })
+
+  it('should deduct usable points when applying negative points', async () => {
+    await request(app)
+      .post('/api/evaluations')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ classId, studentId, points: 10, reason: '加分', category: '学习' })
+
+    const res = await request(app)
+      .post('/api/evaluations')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ classId, studentId, points: -3, reason: '扣分', category: '行为' })
+
+    expect(res.status).toBe(200)
+
+    const student = db.prepare('SELECT total_points, usable_points FROM students WHERE id = ?').get(studentId)
+    expect(student.total_points).toBe(7)
+    expect(student.usable_points).toBe(7)
+  })
+
+  it('should restore only the actual usable points deduction when undoing negative points', async () => {
+    await request(app)
+      .post('/api/evaluations')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ classId, studentId, points: 2, reason: '加分', category: '学习' })
+
+    await request(app)
+      .post('/api/evaluations')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ classId, studentId, points: -5, reason: '扣分', category: '行为' })
+
+    const deducted = db.prepare('SELECT total_points, usable_points FROM students WHERE id = ?').get(studentId)
+    expect(deducted.total_points).toBe(-3)
+    expect(deducted.usable_points).toBe(0)
+
+    const undoRes = await request(app)
+      .delete(`/api/evaluations/latest?classId=${classId}`)
+      .set('Authorization', `Bearer ${token}`)
+
+    expect(undoRes.status).toBe(200)
+
+    const restored = db.prepare('SELECT total_points, usable_points FROM students WHERE id = ?').get(studentId)
+    expect(restored.total_points).toBe(2)
+    expect(restored.usable_points).toBe(2)
   })
 })

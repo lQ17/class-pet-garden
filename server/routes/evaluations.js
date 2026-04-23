@@ -51,16 +51,16 @@ router.post('/', authMiddleware, (req, res) => {
 
   const id = uuidv4()
   const now = Date.now()
+  const studentBefore = db.prepare('SELECT usable_points FROM students WHERE id = ?').get(studentId)
+  const usableDelta = points >= 0
+    ? points
+    : Math.max(points, -(studentBefore?.usable_points || 0))
 
-  db.prepare('INSERT INTO evaluation_records (id, class_id, student_id, points, reason, category, timestamp, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-    .run(id, classId, studentId, points, reason, category, now, req.userId)
+  db.prepare('INSERT INTO evaluation_records (id, class_id, student_id, points, usable_delta, reason, category, timestamp, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(id, classId, studentId, points, usableDelta, reason, category, now, req.userId)
 
-  // 更新累计积分
-  db.prepare('UPDATE students SET total_points = total_points + ? WHERE id = ?').run(points, studentId)
-  // 加分时同时增加可用积分，扣分时只扣累计积分
-  if (points > 0) {
-    db.prepare('UPDATE students SET usable_points = usable_points + ? WHERE id = ?').run(points, studentId)
-  }
+  db.prepare('UPDATE students SET total_points = total_points + ?, usable_points = usable_points + ? WHERE id = ?')
+    .run(points, usableDelta, studentId)
 
   const student = db.prepare('SELECT * FROM students WHERE id = ?').get(studentId)
 
@@ -184,10 +184,9 @@ router.delete('/latest', authMiddleware, (req, res) => {
   db.prepare('UPDATE students SET total_points = ?, pet_exp = ?, pet_level = ?, pet_status = ? WHERE id = ?')
     .run(newTotalPoints, newExp, newLevel, statusCheck.status, record.student_id)
   
-  // 如果是加分撤回，同时减去可用积分（确保可用积分不为负数）
-  if (record.points > 0) {
-    db.prepare('UPDATE students SET usable_points = MAX(0, usable_points - ?) WHERE id = ?').run(record.points, record.student_id)
-  }
+  const usableDelta = record.usable_delta ?? (record.points > 0 ? record.points : 0)
+  db.prepare('UPDATE students SET usable_points = MAX(0, usable_points - ?) WHERE id = ?')
+    .run(usableDelta, record.student_id)
 
   db.prepare('DELETE FROM evaluation_records WHERE id = ?').run(record.id)
 
@@ -213,10 +212,9 @@ router.delete('/:id', authMiddleware, (req, res) => {
   db.prepare('UPDATE students SET total_points = ?, pet_exp = ?, pet_level = ?, pet_status = ? WHERE id = ?')
     .run(newTotalPoints, newExp, newLevel, statusCheck.status, record.student_id)
   
-  // 如果是加分撤回，同时减去可用积分（确保可用积分不为负数）
-  if (record.points > 0) {
-    db.prepare('UPDATE students SET usable_points = MAX(0, usable_points - ?) WHERE id = ?').run(record.points, record.student_id)
-  }
+  const usableDelta = record.usable_delta ?? (record.points > 0 ? record.points : 0)
+  db.prepare('UPDATE students SET usable_points = MAX(0, usable_points - ?) WHERE id = ?')
+    .run(usableDelta, record.student_id)
 
   db.prepare('DELETE FROM evaluation_records WHERE id = ?').run(req.params.id)
 

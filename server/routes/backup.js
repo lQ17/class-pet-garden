@@ -90,9 +90,9 @@ router.post('/', authMiddleware, (req, res) => {
 
     // Restore records
     if (records) {
-      const insertRecord = db.prepare('INSERT INTO evaluation_records (id, class_id, student_id, points, reason, category, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      const insertRecord = db.prepare('INSERT INTO evaluation_records (id, class_id, student_id, points, usable_delta, reason, category, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
       for (const r of records) {
-        insertRecord.run(r.id, r.class_id, r.student_id, r.points, r.reason, r.category, r.timestamp)
+        insertRecord.run(r.id, r.class_id, r.student_id, r.points, r.usable_delta ?? (r.points > 0 ? r.points : 0), r.reason, r.category, r.timestamp)
       }
     }
 

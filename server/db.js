@@ -76,6 +76,7 @@ export function initDb() {
       class_id TEXT NOT NULL,
       student_id TEXT NOT NULL,
       points INTEGER NOT NULL,
+      usable_delta INTEGER,
       reason TEXT NOT NULL,
       category TEXT NOT NULL,
       timestamp INTEGER,
@@ -230,6 +231,13 @@ export function initDb() {
   // 迁移：添加 user_id 到 evaluation_records（如果不存在）
   try {
     db.exec(`ALTER TABLE evaluation_records ADD COLUMN user_id TEXT`)
+  } catch (e) {
+    // 字段已存在，忽略错误
+  }
+
+  // 迁移：添加 usable_delta 到 evaluation_records（如果不存在）
+  try {
+    db.exec(`ALTER TABLE evaluation_records ADD COLUMN usable_delta INTEGER`)
   } catch (e) {
     // 字段已存在，忽略错误
   }
