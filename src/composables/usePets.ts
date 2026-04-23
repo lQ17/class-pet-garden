@@ -1,0 +1,45 @@
+import { computed, ref } from 'vue'
+import { PET_TYPES, clearCustomPetTypes, setCustomPetTypes } from '@/data/pets'
+import { useAuth } from '@/composables/useAuth'
+
+const isLoading = ref(false)
+const hasLoaded = ref(false)
+
+export function usePets() {
+  const { api, isLoggedIn } = useAuth()
+
+  async function loadCustomPets(force = false) {
+    if (!isLoggedIn.value) {
+      clearCustomPetTypes()
+      hasLoaded.value = false
+      return []
+    }
+
+    if (hasLoaded.value && !force) {
+      return PET_TYPES.value
+    }
+
+    isLoading.value = true
+    try {
+      const res = await api.get('/pets')
+      setCustomPetTypes(res.data.pets || [])
+      hasLoaded.value = true
+      return PET_TYPES.value
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  function clearPets() {
+    clearCustomPetTypes()
+    hasLoaded.value = false
+  }
+
+  return {
+    pets: computed(() => PET_TYPES.value),
+    isLoading: computed(() => isLoading.value),
+    hasLoaded: computed(() => hasLoaded.value),
+    loadCustomPets,
+    clearPets
+  }
+}

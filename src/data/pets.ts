@@ -1,31 +1,32 @@
-// 宠物类型定义
+import { computed, ref } from 'vue'
+
 export interface PetType {
   id: string
   name: string
   category: 'normal' | 'mythical'
   image: string
-  // 等级图片路径，key为等级(1-8)，value为图片路径
   levelImages?: Record<number, string>
+  isCustom?: boolean
+  createdAt?: number
+  updatedAt?: number
 }
 
-// 生成等级图片路径的辅助函数
 function generateLevelImages(petId: string): Record<number, string> {
   const basePath = `/pet-garden/pets/${petId}`
   const images: Record<number, string> = {}
+
   for (let i = 1; i <= 8; i++) {
     images[i] = `${basePath}/lv${i}.png`
   }
+
   return images
 }
 
-// 获取默认图片（等级1）
 function getDefaultImage(petId: string): string {
   return `/pet-garden/pets/${petId}/lv1.png`
 }
 
-// 宠物配置
-export const PET_TYPES: PetType[] = [
-  // 普通动物
+export const STATIC_PET_TYPES: PetType[] = [
   { id: 'west-highland', name: '西高地', category: 'normal', image: getDefaultImage('west-highland'), levelImages: generateLevelImages('west-highland') },
   { id: 'bichon', name: '比熊', category: 'normal', image: getDefaultImage('bichon'), levelImages: generateLevelImages('bichon') },
   { id: 'border-collie', name: '边牧', category: 'normal', image: getDefaultImage('border-collie'), levelImages: generateLevelImages('border-collie') },
@@ -45,72 +46,75 @@ export const PET_TYPES: PetType[] = [
   { id: 'alpaca', name: '羊驼', category: 'normal', image: getDefaultImage('alpaca'), levelImages: generateLevelImages('alpaca') },
   { id: 'red-panda', name: '小熊猫', category: 'normal', image: getDefaultImage('red-panda'), levelImages: generateLevelImages('red-panda') },
   { id: 'corgi', name: '柯基', category: 'normal', image: getDefaultImage('corgi'), levelImages: generateLevelImages('corgi') },
-  
-  // 神兽
   { id: 'white-tiger', name: '白虎', category: 'mythical', image: getDefaultImage('white-tiger'), levelImages: generateLevelImages('white-tiger') },
   { id: 'unicorn', name: '独角兽', category: 'mythical', image: getDefaultImage('unicorn'), levelImages: generateLevelImages('unicorn') },
   { id: 'azure-dragon', name: '青龙', category: 'mythical', image: getDefaultImage('azure-dragon'), levelImages: generateLevelImages('azure-dragon') },
   { id: 'vermilion-bird', name: '朱雀', category: 'mythical', image: getDefaultImage('vermilion-bird'), levelImages: generateLevelImages('vermilion-bird') },
   { id: 'succulent-spirit', name: '多肉精灵', category: 'mythical', image: getDefaultImage('succulent-spirit'), levelImages: generateLevelImages('succulent-spirit') },
   { id: 'pixiu', name: '貔貅', category: 'mythical', image: getDefaultImage('pixiu'), levelImages: generateLevelImages('pixiu') },
-  { id: 'suanni', name: '狻猊', category: 'mythical', image: getDefaultImage('suanni'), levelImages: generateLevelImages('suanni') },
+  { id: 'suanni', name: '狻猊', category: 'mythical', image: getDefaultImage('suanni'), levelImages: generateLevelImages('suanni') }
 ]
 
-// 等级配置
-export const LEVEL_CONFIG = [40, 60, 80, 100, 120, 140, 160]
+const customPetTypes = ref<PetType[]>([])
 
-// 获取宠物信息
-export function getPetType(id: string): PetType | undefined {
-  return PET_TYPES.find(p => p.id === id)
+export const PET_TYPES = computed(() => {
+  const customPets = [...customPetTypes.value].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+  return [...customPets, ...STATIC_PET_TYPES]
+})
+
+export function setCustomPetTypes(pets: PetType[]) {
+  customPetTypes.value = pets
 }
 
-// 获取宠物指定等级的图片
+export function clearCustomPetTypes() {
+  customPetTypes.value = []
+}
+
+export function getAllPetTypes(): PetType[] {
+  return PET_TYPES.value
+}
+
+export const LEVEL_CONFIG = [40, 60, 80, 100, 120, 140, 160]
+
+export function getPetType(id: string): PetType | undefined {
+  return getAllPetTypes().find(p => p.id === id)
+}
+
 export function getPetLevelImage(petId: string, level: number): string {
   const pet = getPetType(petId)
   if (!pet) return ''
-  
-  // 确保等级在 1-8 范围内
+
   const validLevel = Math.max(1, Math.min(8, level))
-  
-  // 优先使用等级图片，如果没有则使用默认图片
   return pet.levelImages?.[validLevel] || pet.image || ''
 }
 
-// 死亡阈值
 export const DEATH_THRESHOLD = -20
 
-// 检查宠物状态（前端判断用，与后端逻辑一致）
 export function checkPetStatus(totalPoints: number, currentStatus?: string | null): 'alive' | 'injured' | 'dead' {
-  // 处理 NULL 或 undefined 的情况
   const status = currentStatus || 'alive'
-  
-  // 积分 < -20：死亡状态
+
   if (totalPoints < DEATH_THRESHOLD) {
     return 'dead'
   }
-  
-  // 积分 < 0：受伤或保持死亡
+
   if (totalPoints < 0) {
-    // 如果之前是死亡状态，保持死亡状态
     if (status === 'dead') {
       return 'dead'
     }
     return 'injured'
   }
-  
-  // 积分 >= 0：正常状态
+
   return 'alive'
 }
 
-// 获取宠物等级1的图片（用于选择列表展示）
 export function getPetLevel1Image(petId: string): string {
   return getPetLevelImage(petId, 1)
 }
 
-// 计算等级
 export function calculateLevel(exp: number): number {
   let level = 1
   let total = 0
+
   for (const required of LEVEL_CONFIG) {
     total += required
     if (exp >= total) {
@@ -119,35 +123,34 @@ export function calculateLevel(exp: number): number {
       break
     }
   }
+
   return Math.min(level, 8)
 }
 
-// 获取当前等级进度
 export function getLevelProgress(exp: number): { current: number; required: number; percentage: number; isMaxLevel: boolean } {
   if (!exp || exp <= 0) {
     return { current: 0, required: LEVEL_CONFIG[0], percentage: 0, isMaxLevel: false }
   }
-  
+
   let total = 0
   for (let i = 0; i < LEVEL_CONFIG.length; i++) {
     const levelTotal = total + LEVEL_CONFIG[i]
     if (exp < levelTotal) {
       const current = exp - total
-      return { 
-        current, 
-        required: LEVEL_CONFIG[i], 
+      return {
+        current,
+        required: LEVEL_CONFIG[i],
         percentage: Math.round((current / LEVEL_CONFIG[i]) * 100),
         isMaxLevel: false
       }
     }
     total = levelTotal
   }
-  
-  // Max level reached - 显示总积分/满级所需总积分
+
   const maxExp = LEVEL_CONFIG.reduce((sum, req) => sum + req, 0)
-  return { 
-    current: exp, 
-    required: maxExp, 
+  return {
+    current: exp,
+    required: maxExp,
     percentage: 100,
     isMaxLevel: true
   }

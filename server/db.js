@@ -200,6 +200,17 @@ export function initDb() {
       FOREIGN KEY (student_id) REFERENCES students(id),
       FOREIGN KEY (product_id) REFERENCES products(id)
     );
+
+    CREATE TABLE IF NOT EXISTS custom_pets (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      level_images TEXT NOT NULL,
+      created_at INTEGER,
+      updated_at INTEGER,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
   `)
 
   // 迁移：添加 pet_status 字段（如果不存在）

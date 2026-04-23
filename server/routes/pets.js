@@ -1,0 +1,146 @@
+import { Router } from 'express'
+import multer from 'multer'
+import sharp from 'sharp'
+import { v4 as uuidv4 } from 'uuid'
+import { join } from 'path'
+import { db } from '../db.js'
+import { authMiddleware, teacherMiddleware } from '../middleware/auth.js'
+import { getProductImageUrl, productImagesDir } from '../utils/productImages.js'
+
+const router = Router()
+const MAX_PET_IMAGE_SIZE = 8 * 1024 * 1024
+
+const upload = multer({
+  limits: {
+    fileSize: MAX_PET_IMAGE_SIZE,
+    files: 8
+  },
+  fileFilter: (_req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) {
+      cb(new Error('只能上传图片文件'))
+      return
+    }
+
+    cb(null, true)
+  }
+})
+
+function buildPetFromRecord(record) {
+  const rawImages = JSON.parse(record.level_images)
+  const levelImages = {}
+
+  rawImages.forEach((url, index) => {
+    levelImages[index + 1] = url
+  })
+
+  return {
+    id: record.id,
+    name: record.name,
+    category: record.category,
+    image: rawImages[0] || '',
+    levelImages,
+    isCustom: true,
+    createdAt: record.created_at,
+    updatedAt: record.updated_at
+  }
+}
+
+router.get('/', authMiddleware, (req, res) => {
+  const pets = db.prepare(`
+    SELECT id, name, category, level_images, created_at, updated_at
+    FROM custom_pets
+    WHERE user_id = ?
+    ORDER BY created_at DESC
+  `).all(req.userId)
+
+  res.json({
+    pets: pets.map(buildPetFromRecord)
+  })
+})
+
+router.post('/', authMiddleware, teacherMiddleware, upload.array('images', 8), async (req, res) => {
+  const { name, category } = req.body
+  const files = req.files || []
+  const trimmedName = typeof name === 'string' ? name.trim() : ''
+
+  if (!trimmedName) {
+    return res.status(400).json({ error: '请输入宠物名称' })
+  }
+
+  if (!['normal', 'mythical'].includes(category)) {
+    return res.status(400).json({ error: '宠物类型不合法' })
+  }
+
+  if (!Array.isArray(files) || files.length !== 8) {
+    return res.status(400).json({ error: '必须上传 8 张阶段图片' })
+  }
+
+  try {
+    const levelImageUrls = []
+
+    for (const file of files) {
+      const filename = `${uuidv4()}.webp`
+      const filepath = join(productImagesDir, filename)
+
+      await sharp(file.buffer)
+        .rotate()
+        .resize(1200, 1200, {
+          fit: 'inside',
+          withoutEnlargement: true
+        })
+        .webp({ quality: 80 })
+        .toFile(filepath)
+
+      levelImageUrls.push(getProductImageUrl(filename))
+    }
+
+    const petId = `custom-${uuidv4()}`
+    const now = Date.now()
+
+    db.prepare(`
+      INSERT INTO custom_pets (id, user_id, name, category, level_images, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      petId,
+      req.userId,
+      trimmedName,
+      category,
+      JSON.stringify(levelImageUrls),
+      now,
+      now
+    )
+
+    const pet = db.prepare(`
+      SELECT id, name, category, level_images, created_at, updated_at
+      FROM custom_pets
+      WHERE id = ? AND user_id = ?
+    `).get(petId, req.userId)
+
+    res.json({ pet: buildPetFromRecord(pet) })
+  } catch (error) {
+    console.error('创建自定义宠物失败:', error)
+    res.status(500).json({ error: '创建宠物失败，请稍后重试' })
+  }
+})
+
+router.use((error, _req, res, next) => {
+  if (error instanceof multer.MulterError) {
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({ error: '宠物图片过大，请压缩后重试（单张不超过 8MB）' })
+    }
+
+    if (error.code === 'LIMIT_FILE_COUNT') {
+      return res.status(400).json({ error: '请上传 8 张阶段图片' })
+    }
+
+    return res.status(400).json({ error: '图片上传失败，请检查文件后重试' })
+  }
+
+  if (error) {
+    return res.status(400).json({ error: error.message || '图片上传失败，请检查文件后重试' })
+  }
+
+  next()
+})
+
+export default router

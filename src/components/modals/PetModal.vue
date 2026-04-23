@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { PET_TYPES, getPetLevel1Image } from '@/data/pets'
+import { getPetLevel1Image } from '@/data/pets'
+import { usePets } from '@/composables/usePets'
 import type { Student } from '@/types'
 
 const props = defineProps<{
@@ -14,10 +15,12 @@ const emit = defineEmits<{
 }>()
 
 const imageLoaded = ref<Record<string, boolean>>({})
+const { pets, loadCustomPets } = usePets()
 
-watch(() => props.show, (show) => {
+watch(() => props.show, async (show) => {
   if (show) {
     imageLoaded.value = {}
+    await loadCustomPets()
   }
 })
 
@@ -39,20 +42,16 @@ function close() {
           <span>为 <span class="text-gradient bg-gradient-to-r from-orange-500 to-pink-500 bg-clip-text text-transparent">{{ student?.name }}</span> 选择宠物伙伴</span>
         </h3>
 
-        <!-- 宠物网格 -->
         <div class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
           <button
-            v-for="pet in PET_TYPES"
+            v-for="pet in pets"
             :key="pet.id"
             @click="select(pet.id)"
             class="relative bg-gradient-to-br from-white to-gray-50 rounded-2xl p-3 hover:shadow-xl hover:scale-105 transition-all text-center group border-2 border-transparent hover:border-orange-300 hover:from-orange-50 hover:to-pink-50 overflow-hidden"
           >
-            <!-- 装饰性边框 -->
             <div class="absolute inset-0 rounded-2xl border-2 border-dashed border-gray-200 group-hover:border-orange-200 transition-colors"></div>
 
-            <!-- 图片容器 -->
             <div class="relative w-full aspect-square mx-auto mb-2">
-              <!-- 加载动画 -->
               <div
                 v-if="!imageLoaded[pet.id]"
                 class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-orange-100/80 to-pink-100/80 rounded-xl"
@@ -63,7 +62,7 @@ function close() {
                   <span class="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style="animation-delay: 300ms"></span>
                 </div>
               </div>
-              <!-- 宠物图片 -->
+
               <img
                 :src="getPetLevel1Image(pet.id)"
                 class="w-full h-full object-contain group-hover:scale-110 transition-all duration-300 rounded-xl p-1"
@@ -72,8 +71,10 @@ function close() {
               />
             </div>
 
-            <!-- 宠物名称 -->
-            <div class="text-base font-bold mt-2 text-gray-800 group-hover:text-orange-600 transition-colors leading-tight">{{ pet.name }}</div>
+            <div class="text-base font-bold mt-2 text-gray-800 group-hover:text-orange-600 transition-colors leading-tight">
+              {{ pet.name }}
+            </div>
+            <div v-if="pet.isCustom" class="mt-1 text-[11px] font-medium text-pink-500">自定义</div>
           </button>
         </div>
 

@@ -10,15 +10,15 @@ import {
 
 describe('pets 数据和基础函数', () => {
   it('应该有正确数量的宠物类型', () => {
-    expect(PET_TYPES.length).toBeGreaterThan(0)
+    expect(PET_TYPES.value.length).toBeGreaterThan(0)
     // 至少有普通和神兽两个类别
-    const categories = new Set(PET_TYPES.map(p => p.category))
+    const categories = new Set(PET_TYPES.value.map(p => p.category))
     expect(categories.has('normal')).toBe(true)
     expect(categories.has('mythical')).toBe(true)
   })
 
   it('每个宠物应该有有效的 ID 和名称', () => {
-    for (const pet of PET_TYPES) {
+    for (const pet of PET_TYPES.value) {
       expect(pet.id).toBeTruthy()
       expect(pet.name).toBeTruthy()
       expect(typeof pet.id).toBe('string')
