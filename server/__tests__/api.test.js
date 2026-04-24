@@ -18,6 +18,8 @@ const classRoutes = (await import('../routes/classes.js')).default
 const studentRoutes = (await import('../routes/students.js')).default
 const evaluationRoutes = (await import('../routes/evaluations.js')).default
 const ruleRoutes = (await import('../routes/rules.js')).default
+const tagRoutes = (await import('../routes/tags.js')).default
+const backupRoutes = (await import('../routes/backup.js')).default
 
 const { db } = await import('../db.js')
 
@@ -26,6 +28,8 @@ app.use('/api/classes', classRoutes)
 app.use('/api/students', studentRoutes)
 app.use('/api/evaluations', evaluationRoutes)
 app.use('/api/rules', ruleRoutes)
+app.use('/api/tags', tagRoutes)
+app.use('/api/backup', backupRoutes)
 
 // 初始化数据库
 function initTestDb() {
@@ -131,6 +135,7 @@ function initTestDb() {
       stock INTEGER DEFAULT -1,
       image_url TEXT,
       is_enabled INTEGER DEFAULT 1,
+      is_deleted INTEGER DEFAULT 0,
       sort_order INTEGER DEFAULT 0,
       created_at INTEGER,
       updated_at INTEGER
@@ -144,6 +149,51 @@ function initTestDb() {
       product_name TEXT NOT NULL,
       price INTEGER NOT NULL,
       redeemed_at INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS custom_pets (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      level_images TEXT NOT NULL,
+      created_at INTEGER,
+      updated_at INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS pet_image_overrides (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      pet_id TEXT NOT NULL,
+      level_images TEXT NOT NULL,
+      created_at INTEGER,
+      updated_at INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS revival_tasks (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      is_preset INTEGER DEFAULT 0,
+      is_enabled INTEGER DEFAULT 1,
+      sort_order INTEGER DEFAULT 0,
+      created_at INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS student_revival_tasks (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      task_id TEXT NOT NULL,
+      status TEXT DEFAULT 'pending',
+      assigned_at INTEGER,
+      completed_at INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS revival_records (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      revived_at INTEGER
     );
   `)
 }
@@ -379,5 +429,99 @@ describe('Evaluations API', () => {
     const restored = db.prepare('SELECT total_points, usable_points FROM students WHERE id = ?').get(studentId)
     expect(restored.total_points).toBe(2)
     expect(restored.usable_points).toBe(2)
+  })
+})
+
+describe('Backup API', () => {
+  it('should restore teacher-scoped backup with student accounts and tags', async () => {
+    const teacherName = `backup-${uuidv4().slice(0, 8)}`
+    const studentNo = `S${uuidv4().slice(0, 8)}`
+
+    const registerRes = await request(app)
+      .post('/api/auth/register')
+      .send({ username: teacherName, password: 'password123' })
+
+    const token = registerRes.body.token
+
+    const classRes = await request(app)
+      .post('/api/classes')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: '备份测试班级' })
+
+    const classId = classRes.body.id
+
+    const studentRes = await request(app)
+      .post('/api/students')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ classId, name: '备份学生', studentNo, password: '123456' })
+
+    const studentId = studentRes.body.id
+
+    const tagRes = await request(app)
+      .post('/api/tags')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: '班干部', color: '#ef4444' })
+
+    expect(tagRes.status).toBe(200)
+
+    const applyTagRes = await request(app)
+      .post(`/api/tags/student/${studentId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ tagId: tagRes.body.id })
+
+    expect(applyTagRes.status).toBe(200)
+
+    const exportRes = await request(app)
+      .get('/api/backup')
+      .set('Authorization', `Bearer ${token}`)
+
+    expect(exportRes.status).toBe(200)
+    expect(exportRes.body.version).toBe('3.0.0')
+    expect(exportRes.body.studentUsers).toHaveLength(1)
+    expect(exportRes.body.tags).toHaveLength(1)
+    expect(exportRes.body.tagRelations).toHaveLength(1)
+
+    await request(app)
+      .delete(`/api/classes/${classId}`)
+      .set('Authorization', `Bearer ${token}`)
+
+    const restoreRes = await request(app)
+      .post('/api/backup')
+      .set('Authorization', `Bearer ${token}`)
+      .send(exportRes.body)
+
+    expect(restoreRes.status).toBe(200)
+
+    const restoredClasses = await request(app)
+      .get('/api/classes')
+      .set('Authorization', `Bearer ${token}`)
+
+    expect(restoredClasses.status).toBe(200)
+    expect(restoredClasses.body.classes).toHaveLength(1)
+    expect(restoredClasses.body.classes[0].name).toBe('备份测试班级')
+
+    const restoredStudents = await request(app)
+      .get(`/api/classes/${classId}/students`)
+      .set('Authorization', `Bearer ${token}`)
+
+    expect(restoredStudents.status).toBe(200)
+    expect(restoredStudents.body.students).toHaveLength(1)
+    expect(restoredStudents.body.students[0].student_no).toBe(studentNo)
+
+    const restoredTags = await request(app)
+      .get(`/api/tags/student/${studentId}`)
+      .set('Authorization', `Bearer ${token}`)
+
+    expect(restoredTags.status).toBe(200)
+    expect(restoredTags.body.tags).toHaveLength(1)
+    expect(restoredTags.body.tags[0].name).toBe('班干部')
+
+    const studentLoginRes = await request(app)
+      .post('/api/auth/login')
+      .send({ username: studentNo, password: '123456' })
+
+    expect(studentLoginRes.status).toBe(200)
+    expect(studentLoginRes.body.user.userType).toBe('student')
+    expect(studentLoginRes.body.user.classId).toBe(classId)
   })
 })
