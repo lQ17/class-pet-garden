@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { db } from '../db.js'
-import { authMiddleware } from '../middleware/auth.js'
+import { authMiddleware, teacherMiddleware } from '../middleware/auth.js'
 import { calculateLevel } from '../utils/level.js'
 
 const router = Router()
@@ -16,7 +16,7 @@ router.get('/', (req, res) => {
 })
 
 // 修复经验值（将 pet_exp 与 total_points 同步）
-router.post('/fix-exp', authMiddleware, (req, res) => {
+router.post('/fix-exp', authMiddleware, teacherMiddleware, (req, res) => {
   // Sync pet_exp with total_points for students with pets (只处理当前用户的班级)
   const result = db.prepare(`
     UPDATE students SET pet_exp = MAX(0, total_points)
@@ -30,7 +30,7 @@ router.post('/fix-exp', authMiddleware, (req, res) => {
 router.get('/ranking/:classId', authMiddleware, (req, res) => {
   // 验证班级归属
   const cls = db.prepare('SELECT * FROM classes WHERE id = ?').get(req.params.classId)
-  if (!cls || cls.user_id !== req.userId) {
+  if (!cls || (req.user.user_type === 'student' ? cls.id !== req.user.class_id : cls.user_id !== req.userId)) {
     return res.status(403).json({ error: '无权访问此班级' })
   }
 

@@ -1,8 +1,8 @@
 import { Router } from 'express'
 import { v4 as uuidv4 } from 'uuid'
 import { db } from '../db.js'
-import { authMiddleware } from '../middleware/auth.js'
-import { verifyClassOwnership, verifyRecordOwnership } from '../middleware/ownership.js'
+import { authMiddleware, teacherMiddleware } from '../middleware/auth.js'
+import { getTeacherUserIdForRequest, verifyClassAccess, verifyClassOwnership, verifyRecordOwnership } from '../middleware/ownership.js'
 import { calculateLevel } from '../utils/level.js'
 
 const router = Router()
@@ -41,7 +41,7 @@ export function checkPetStatus(totalPoints, currentStatus) {
 }
 
 // 添加评价
-router.post('/', authMiddleware, (req, res) => {
+router.post('/', authMiddleware, teacherMiddleware, (req, res) => {
   const { classId, studentId, points, reason, category } = req.body
 
   const cls = verifyClassOwnership(classId, req.userId)
@@ -121,16 +121,32 @@ router.get('/', authMiddleware, (req, res) => {
   const params = []
   const countParams = []
 
-  params.push(req.userId)
-  countParams.push(req.userId)
+  const ownerUserId = getTeacherUserIdForRequest(req)
+  params.push(ownerUserId)
+  countParams.push(ownerUserId)
 
   const conditions = ['c.user_id = ?']
+  if (req.user?.user_type === 'student') {
+    conditions.push('er.class_id = ?')
+    params.push(req.user.class_id)
+    countParams.push(req.user.class_id)
+  }
   if (classId) {
+    const cls = verifyClassAccess(classId, req)
+    if (!cls) {
+      return res.status(403).json({ error: '班级不存在或无权访问' })
+    }
     conditions.push('er.class_id = ?')
     params.push(classId)
     countParams.push(classId)
   }
   if (studentId) {
+    if (req.user?.user_type === 'student') {
+      const student = db.prepare('SELECT class_id FROM students WHERE id = ?').get(studentId)
+      if (!student || student.class_id !== req.user.class_id) {
+        return res.status(403).json({ error: '学生只能查看所在班级的数据' })
+      }
+    }
     conditions.push('er.student_id = ?')
     params.push(studentId)
     countParams.push(studentId)
@@ -156,7 +172,7 @@ router.get('/', authMiddleware, (req, res) => {
 })
 
 // 撤回最新评价
-router.delete('/latest', authMiddleware, (req, res) => {
+router.delete('/latest', authMiddleware, teacherMiddleware, (req, res) => {
   const { classId } = req.query
   if (!classId) {
     return res.status(400).json({ error: 'classId required' })
@@ -194,7 +210,7 @@ router.delete('/latest', authMiddleware, (req, res) => {
 })
 
 // 删除指定评价记录
-router.delete('/:id', authMiddleware, (req, res) => {
+router.delete('/:id', authMiddleware, teacherMiddleware, (req, res) => {
   const record = verifyRecordOwnership(req.params.id, req.userId)
   if (!record) {
     return res.status(404).json({ error: 'Record not found' })

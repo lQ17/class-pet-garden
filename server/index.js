@@ -46,8 +46,8 @@ const adminUser = db.prepare('SELECT id FROM users WHERE username = ?').get('adm
 if (!adminUser) {
   const adminId = uuidv4()
   const adminPasswordHash = hashPassword('Claw2026!')
-  db.prepare('INSERT INTO users (id, username, password_hash, is_guest, is_admin, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-    .run(adminId, 'admin', adminPasswordHash, 0, 1, Date.now())
+  db.prepare('INSERT INTO users (id, username, password_hash, is_guest, is_admin, user_type, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .run(adminId, 'admin', adminPasswordHash, 0, 1, 'admin', Date.now())
   console.log('✅ 创建管理员账号: admin')
 }
 

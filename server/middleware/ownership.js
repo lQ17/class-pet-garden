@@ -16,6 +16,24 @@ export function verifyClassOwnership(classId, userId) {
   `).get(classId, userId)
 }
 
+export function getTeacherUserIdForRequest(req) {
+  if (req.user?.user_type === 'student') {
+    return db.prepare('SELECT user_id FROM classes WHERE id = ?').get(req.user.class_id)?.user_id
+  }
+
+  return req.userId
+}
+
+export function verifyClassAccess(classId, req) {
+  if (req.user?.user_type === 'student') {
+    return classId === req.user.class_id
+      ? db.prepare('SELECT * FROM classes WHERE id = ?').get(classId)
+      : null
+  }
+
+  return verifyClassOwnership(classId, req.userId)
+}
+
 /**
  * 验证学生所有权（通过班级关联）
  * @param {string} studentId - 学生ID
@@ -81,7 +99,7 @@ export function verifyStudentsOwnership(studentIds, userId) {
 
   const placeholders = studentIds.map(() => '?').join(',')
   const students = db.prepare(`
-    SELECT s.id FROM students s
+    SELECT s.id, s.user_id FROM students s
     JOIN classes c ON s.class_id = c.id
     WHERE s.id IN (${placeholders}) AND c.user_id = ?
   `).all(...studentIds, userId)

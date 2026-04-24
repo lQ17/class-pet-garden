@@ -6,6 +6,9 @@ interface User {
   username: string
   isGuest?: boolean
   isAdmin: boolean
+  userType: 'teacher' | 'student' | 'admin'
+  studentId?: string | null
+  classId?: string | null
 }
 
 let globalErrorHandler: ((message: string) => void) | null = null
@@ -60,6 +63,8 @@ if (savedUser && savedToken) {
 
 const isLoggedIn = computed(() => !!user.value)
 const isAdmin = computed(() => user.value?.isAdmin ?? false)
+const isStudent = computed(() => user.value?.userType === 'student')
+const isTeacher = computed(() => !!user.value && !isStudent.value)
 const username = computed(() => user.value?.username || '')
 
 function setUser(userData: User, userToken: string) {
@@ -93,6 +98,8 @@ export function useAuth() {
     token,
     isLoggedIn,
     isAdmin,
+    isStudent,
+    isTeacher,
     username,
     api,
     setUser,

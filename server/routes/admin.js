@@ -16,7 +16,7 @@ router.get('/teachers', authMiddleware, adminMiddleware, (req, res) => {
   const teachers = db.prepare(`
     SELECT id, username, created_at, is_admin
     FROM users
-    WHERE is_admin = 0
+    WHERE is_admin = 0 AND COALESCE(user_type, 'teacher') = 'teacher'
     ORDER BY created_at DESC
   `).all()
 
@@ -72,7 +72,7 @@ router.get('/teachers', authMiddleware, adminMiddleware, (req, res) => {
 
 router.get('/stats', authMiddleware, adminMiddleware, (req, res) => {
   const stats = {
-    teachers: db.prepare('SELECT count(*) as count FROM users').get().count,
+    teachers: db.prepare("SELECT count(*) as count FROM users WHERE COALESCE(user_type, 'teacher') = 'teacher' AND is_admin = 0").get().count,
     classes: db.prepare('SELECT count(*) as count FROM classes').get().count,
     students: db.prepare('SELECT count(*) as count FROM students').get().count,
     evaluations: db.prepare('SELECT count(*) as count FROM evaluation_records').get().count,
@@ -119,8 +119,14 @@ router.delete('/users/:id', authMiddleware, adminMiddleware, (req, res) => {
         const deleteEvals = db.prepare('DELETE FROM evaluation_records WHERE class_id IN (' + classIds.map(() => '?').join(',') + ')')
         deleteEvals.run(...classIds)
 
+        const studentUsers = db.prepare('SELECT user_id FROM students WHERE user_id IS NOT NULL AND class_id IN (' + classIds.map(() => '?').join(',') + ')').all(...classIds)
+
         const deleteStudents = db.prepare('DELETE FROM students WHERE class_id IN (' + classIds.map(() => '?').join(',') + ')')
         deleteStudents.run(...classIds)
+
+        for (const studentUser of studentUsers) {
+          db.prepare('DELETE FROM users WHERE id = ? AND user_type = ?').run(studentUser.user_id, 'student')
+        }
 
         db.prepare('DELETE FROM classes WHERE user_id = ?').run(userId)
       }

@@ -2,7 +2,8 @@ import { Router } from 'express'
 import multer from 'multer'
 import { v4 as uuidv4 } from 'uuid'
 import { db } from '../db.js'
-import { authMiddleware } from '../middleware/auth.js'
+import { authMiddleware, teacherMiddleware } from '../middleware/auth.js'
+import { getTeacherUserIdForRequest } from '../middleware/ownership.js'
 import { isSupportedImageMimeType, saveUploadedImage } from '../utils/uploadedImageStorage.js'
 
 const router = Router()
@@ -20,7 +21,7 @@ const upload = multer({
   }
 })
 
-router.post('/upload-image', authMiddleware, upload.single('image'), async (req, res) => {
+router.post('/upload-image', authMiddleware, teacherMiddleware, upload.single('image'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: '请上传图片' })
   }
@@ -36,11 +37,12 @@ router.post('/upload-image', authMiddleware, upload.single('image'), async (req,
 
 // 商品相关路由
 router.get('/products', authMiddleware, (req, res) => {
-  const products = db.prepare('SELECT * FROM products WHERE user_id = ? AND is_deleted = 0 ORDER BY sort_order ASC, created_at DESC').all(req.userId)
+  const ownerUserId = getTeacherUserIdForRequest(req)
+  const products = db.prepare('SELECT * FROM products WHERE user_id = ? AND is_deleted = 0 ORDER BY sort_order ASC, created_at DESC').all(ownerUserId)
   res.json({ products })
 })
 
-router.post('/products', authMiddleware, (req, res) => {
+router.post('/products', authMiddleware, teacherMiddleware, (req, res) => {
   const { name, description, price, stock = -1, imageUrl, isEnabled = true, sortOrder = 0 } = req.body
   const id = uuidv4()
   const now = Date.now()
@@ -63,7 +65,7 @@ router.post('/products', authMiddleware, (req, res) => {
   })
 })
 
-router.put('/products/:id', authMiddleware, (req, res) => {
+router.put('/products/:id', authMiddleware, teacherMiddleware, (req, res) => {
   const { name, description, price, stock, imageUrl, isEnabled, sortOrder } = req.body
   const now = Date.now()
   const product = db.prepare('SELECT * FROM products WHERE id = ? AND user_id = ? AND is_deleted = 0').get(req.params.id, req.userId)
@@ -79,7 +81,7 @@ router.put('/products/:id', authMiddleware, (req, res) => {
   res.json({ success: true })
 })
 
-router.delete('/products/:id', authMiddleware, (req, res) => {
+router.delete('/products/:id', authMiddleware, teacherMiddleware, (req, res) => {
   try {
     const product = db.prepare('SELECT * FROM products WHERE id = ? AND user_id = ?').get(req.params.id, req.userId)
     if (!product) {
@@ -114,8 +116,9 @@ router.get('/redemptions', authMiddleware, (req, res) => {
   const params = []
   const countParams = []
 
-  params.push(req.userId)
-  countParams.push(req.userId)
+  const ownerUserId = getTeacherUserIdForRequest(req)
+  params.push(ownerUserId)
+  countParams.push(ownerUserId)
 
   const conditions = ['rr.user_id = ?']
   if (studentId) {
@@ -144,7 +147,7 @@ router.get('/redemptions', authMiddleware, (req, res) => {
 })
 
 // 兑换商品
-router.post('/redeem', authMiddleware, (req, res) => {
+router.post('/redeem', authMiddleware, teacherMiddleware, (req, res) => {
   const { studentId, productId } = req.body
 
   const student = db.prepare('SELECT * FROM students s JOIN classes c ON s.class_id = c.id WHERE s.id = ? AND c.user_id = ?').get(studentId, req.userId)

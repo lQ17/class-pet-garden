@@ -36,6 +36,10 @@ function initTestDb() {
       password_hash TEXT NOT NULL,
       is_guest INTEGER DEFAULT 0,
       is_admin INTEGER DEFAULT 0,
+      user_type TEXT DEFAULT 'teacher',
+      student_id TEXT,
+      class_id TEXT,
+      revival_enabled INTEGER DEFAULT 0,
       created_at INTEGER
     );
 
@@ -50,6 +54,7 @@ function initTestDb() {
     CREATE TABLE IF NOT EXISTS students (
       id TEXT PRIMARY KEY,
       class_id TEXT NOT NULL,
+      user_id TEXT,
       name TEXT NOT NULL,
       student_no TEXT,
       total_points INTEGER DEFAULT 0,
@@ -264,7 +269,7 @@ describe('Students API', () => {
     const res = await request(app)
       .post('/api/students')
       .set('Authorization', `Bearer ${token}`)
-      .send({ classId, name: '张三', studentNo: '001' })
+      .send({ classId, name: '张三', studentNo: '001', password: '123456' })
 
     expect(res.status).toBe(200)
     expect(res.body.name).toBe('张三')
@@ -328,7 +333,7 @@ describe('Evaluations API', () => {
     const studentRes = await request(app)
       .post('/api/students')
       .set('Authorization', `Bearer ${token}`)
-      .send({ classId, name: '测试学生', studentNo: '001' })
+      .send({ classId, name: '测试学生', studentNo: `S${uuidv4().slice(0, 8)}`, password: '123456' })
     studentId = studentRes.body.id
   })
 

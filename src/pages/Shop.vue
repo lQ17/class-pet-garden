@@ -9,7 +9,7 @@ import { useAuth } from '@/composables/useAuth'
 import PageLayout from '@/components/layout/PageLayout.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 
-const { api } = useAuth()
+const { api, isTeacher } = useAuth()
 const { classes, currentClass } = useClasses()
 const { students, loadStudents } = useStudents()
 const toast = useToast()
@@ -49,6 +49,10 @@ async function loadProducts() {
 }
 
 async function loadRedemptions() {
+  if (!isTeacher.value) {
+    redemptions.value = []
+    return
+  }
   try {
     const res = await api.get('/shop/redemptions')
     redemptions.value = res.data.records
@@ -58,6 +62,7 @@ async function loadRedemptions() {
 }
 
 function openAddProductModal() {
+  if (!isTeacher.value) return
   editingProduct.value = null
   productForm.value = {
     name: '',
@@ -72,6 +77,7 @@ function openAddProductModal() {
 }
 
 function openEditProductModal(product: Product) {
+  if (!isTeacher.value) return
   editingProduct.value = product
   productForm.value = {
     name: product.name,
@@ -86,6 +92,7 @@ function openEditProductModal(product: Product) {
 }
 
 async function saveProduct() {
+  if (!isTeacher.value) return
   if (!productForm.value.name.trim()) {
     toast.warning('请输入商品名称')
     return
@@ -111,6 +118,7 @@ async function saveProduct() {
 }
 
 async function handleImageUpload(event: Event) {
+  if (!isTeacher.value) return
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
   if (!file) return
@@ -143,6 +151,7 @@ function openImageViewer(imageUrl: string) {
 }
 
 async function deleteProduct(productId: string) {
+  if (!isTeacher.value) return
   showConfirm({
     title: '删除商品',
     message: '确定删除该商品？',
@@ -161,12 +170,14 @@ async function deleteProduct(productId: string) {
 }
 
 function openRedeemModal(product: Product) {
+  if (!isTeacher.value) return
   redeemingProduct.value = product
   selectedStudentId.value = ''
   showRedeemModal.value = true
 }
 
 async function redeemProduct() {
+  if (!isTeacher.value) return
   if (!selectedStudentId.value) {
     toast.warning('请选择学生')
     return
@@ -232,6 +243,7 @@ onMounted(async () => {
           </div>
           <div class="flex items-center gap-2">
             <button
+              v-if="isTeacher"
               @click="openAddProductModal"
               class="px-4 py-2 text-sm text-white bg-gradient-to-r from-orange-400 to-pink-500 rounded-xl font-medium shadow-sm hover:shadow-md transition-all"
             >
@@ -252,6 +264,7 @@ onMounted(async () => {
             📦 商品列表
           </button>
           <button
+            v-if="isTeacher"
             @click="activeTab = 'redemptions'"
             class="px-4 py-2 rounded-xl text-sm font-medium transition-all"
             :class="activeTab === 'redemptions' 
@@ -292,7 +305,7 @@ onMounted(async () => {
                   <div class="p-4">
                     <div class="flex items-start justify-between mb-2">
                       <h4 class="font-bold text-gray-800">{{ product.name }}</h4>
-                      <div class="flex gap-1">
+                      <div v-if="isTeacher" class="flex gap-1">
                         <button
                           @click="openEditProductModal(product)"
                           class="p-1 text-gray-400 hover:text-blue-500 transition-colors"
@@ -315,6 +328,7 @@ onMounted(async () => {
                       </div>
                     </div>
                     <button
+                      v-if="isTeacher"
                       @click="openRedeemModal(product)"
                       :disabled="(product.stock !== -1 && product.stock <= 0)"
                       class="w-full mt-3 py-2 rounded-xl text-sm font-medium transition-all"
@@ -350,7 +364,7 @@ onMounted(async () => {
                   <div class="p-4">
                     <div class="flex items-start justify-between mb-2">
                       <h4 class="font-bold text-gray-800">{{ product.name }}</h4>
-                      <div class="flex gap-1">
+                      <div v-if="isTeacher" class="flex gap-1">
                         <button
                           @click="openEditProductModal(product)"
                           class="p-1 text-gray-400 hover:text-blue-500 transition-colors"
@@ -377,6 +391,7 @@ onMounted(async () => {
               <div class="text-6xl mb-4">📦</div>
               <div>暂无商品</div>
               <button
+                v-if="isTeacher"
                 @click="openAddProductModal"
                 class="mt-4 text-orange-500 hover:text-orange-600 font-medium"
               >
@@ -418,7 +433,7 @@ onMounted(async () => {
       <!-- 商品编辑弹窗 -->
       <Transition name="modal">
         <div
-          v-if="showProductModal"
+          v-if="showProductModal && isTeacher"
           class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           @click.self="showProductModal = false"
         >
@@ -537,7 +552,7 @@ onMounted(async () => {
       <!-- 兑换弹窗 -->
       <Transition name="modal">
         <div
-          v-if="showRedeemModal"
+          v-if="showRedeemModal && isTeacher"
           class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           @click.self="showRedeemModal = false"
         >

@@ -27,7 +27,7 @@ import PetStatusModal from '@/components/PetStatusModal.vue'
 import ClassModal from '@/components/modals/ClassModal.vue'
 
 // Auth & Toast
-const { api } = useAuth()
+const { api, isStudent } = useAuth()
 const toast = useToast()
 const { confirmDialog, showConfirm, closeConfirm } = useConfirm()
 const { showLevelUpAnimation, levelUpInfo, levelUpPhase, triggerLevelUp } = useLevelUp()
@@ -119,6 +119,7 @@ async function loadRules() {
 
 // 宠物操作
 async function selectPet(petId: string) {
+  if (isStudent.value) return
   if (!selectedStudent.value) return
   try {
     await changePet(selectedStudent.value.id, petId)
@@ -154,6 +155,7 @@ function handlePetStatusChange(res: any, student: Student, pointsDelta: number) 
 }
 
 async function doEvaluate(student: Student, rule: Rule) {
+  if (isStudent.value) return null
   try {
     const res = await addEvaluation(student.id, { points: rule.points, name: rule.name, category: rule.category })
     triggerScoreAnimation(student.id, rule.points)
@@ -244,6 +246,7 @@ async function handleCreateClass(name: string) {
 
 // 详情面板
 async function openDetailPanel(student: Student) {
+  if (isStudent.value) return
   if (!student.pet_type) {
     showConfirm({
       title: '领养宠物',
@@ -278,6 +281,7 @@ function closeDetailPanel() {
 
 // 批量模式
 function startBatchMode() {
+  if (isStudent.value) return
   batchMode.value = true
   selectedStudents.value = new Set()
 }
@@ -401,8 +405,8 @@ onActivated(() => {
         <div class="flex-1"></div>
 
         <!-- 右侧：批量操作按钮 -->
-        <button v-if="students.length > 0 && !batchMode" @click="startBatchMode" class="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium text-sm shadow-sm hover:bg-gray-50 hover:border-gray-300 transition-all">✅ 批量评价</button>
-        <template v-if="batchMode">
+        <button v-if="students.length > 0 && !batchMode && !isStudent" @click="startBatchMode" class="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium text-sm shadow-sm hover:bg-gray-50 hover:border-gray-300 transition-all">✅ 批量评价</button>
+        <template v-if="batchMode && !isStudent">
           <button @click="selectAllFiltered" class="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium text-sm shadow-sm hover:bg-gray-50 hover:border-gray-300 transition-all">📋 全选 ({{ filteredStudents.length }})</button>
           <button @click="cancelBatchMode" class="px-4 py-2 bg-orange-500 text-white rounded-xl font-medium text-sm shadow-sm hover:bg-orange-600 transition-all">✕ 退出批量评价</button>
         </template>
@@ -414,7 +418,7 @@ onActivated(() => {
           <div class="text-8xl mb-6 animate-float">🏫</div>
           <h3 class="text-2xl font-bold text-gray-700 mb-3">还没有班级</h3>
           <p class="text-gray-500 mb-6 text-lg">创建一个班级，开启你的宠物园之旅吧！</p>
-          <button @click="showClassModal = true" class="bg-gradient-to-r from-orange-400 to-pink-500 text-white px-6 py-3 rounded-2xl hover:shadow-lg hover:scale-105 transition-all font-bold">
+          <button v-if="!isStudent" @click="showClassModal = true" class="bg-gradient-to-r from-orange-400 to-pink-500 text-white px-6 py-3 rounded-2xl hover:shadow-lg hover:scale-105 transition-all font-bold">
             ➕ 创建班级
           </button>
         </div>
@@ -424,7 +428,7 @@ onActivated(() => {
           <div class="text-8xl mb-6 animate-float">👨‍🎓</div>
           <h3 class="text-2xl font-bold text-gray-700 mb-3">还没有学生</h3>
           <p class="text-gray-500 mb-6 text-lg">添加学生，让他们领养可爱的宠物吧！</p>
-          <router-link to="/students" class="bg-gradient-to-r from-orange-400 to-pink-500 text-white px-6 py-3 rounded-2xl hover:shadow-lg hover:scale-105 transition-all font-bold">
+          <router-link v-if="!isStudent" to="/students" class="bg-gradient-to-r from-orange-400 to-pink-500 text-white px-6 py-3 rounded-2xl hover:shadow-lg hover:scale-105 transition-all font-bold">
             👉 去学生管理
           </router-link>
         </div>
@@ -444,7 +448,7 @@ onActivated(() => {
 
       <!-- Batch Action Bar -->
       <BatchActionBar
-        v-if="batchMode"
+        v-if="batchMode && !isStudent"
         :selected-count="selectedStudents.size"
         mode="batch"
         @evaluate="selectedStudent = null; showEvalModal = true"
@@ -452,9 +456,9 @@ onActivated(() => {
     </div>
 
     <!-- Modals -->
-    <EvaluationModal :show="showEvalModal" :selected-count="selectedStudents.size" :rules="rules" @close="showEvalModal = false" @evaluate="handleEvaluate" />
-    <PetModal :show="showPetModal" :student="selectedStudent" @close="showPetModal = false; selectedStudent = null" @select="selectPet" />
-    <DetailPanel :show="showDetailPanel" :student="detailStudent" :rules="rules" :student-records="studentRecords" @close="closeDetailPanel" @change-pet="showDetailPanel = false; selectedStudent = detailStudent; showPetModal = true" @evaluate="handleDetailEvaluate" @revived="handleRevived" />
+    <EvaluationModal v-if="!isStudent" :show="showEvalModal" :selected-count="selectedStudents.size" :rules="rules" @close="showEvalModal = false" @evaluate="handleEvaluate" />
+    <PetModal v-if="!isStudent" :show="showPetModal" :student="selectedStudent" @close="showPetModal = false; selectedStudent = null" @select="selectPet" />
+    <DetailPanel v-if="!isStudent" :show="showDetailPanel" :student="detailStudent" :rules="rules" :student-records="studentRecords" @close="closeDetailPanel" @change-pet="showDetailPanel = false; selectedStudent = detailStudent; showPetModal = true" @evaluate="handleDetailEvaluate" @revived="handleRevived" />
     <ConfirmDialog :show="confirmDialog.show" :title="confirmDialog.title" :message="confirmDialog.message" :confirm-text="confirmDialog.confirmText" :cancel-text="confirmDialog.cancelText" :type="confirmDialog.type" @confirm="confirmDialog.onConfirm" @cancel="closeConfirm" />
     <ClassModal :show="showClassModal" @close="showClassModal = false" @submit="handleCreateClass" />
   </PageLayout>

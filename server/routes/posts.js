@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { db } from '../db.js'
-import { authMiddleware } from '../middleware/auth.js'
+import { authMiddleware, teacherMiddleware } from '../middleware/auth.js'
 import { randomUUID } from 'crypto'
 
 const router = Router()
@@ -60,7 +60,7 @@ router.get('/:id', (req, res) => {
 })
 
 // 创建帖子
-router.post('/', authMiddleware, (req, res) => {
+router.post('/', authMiddleware, teacherMiddleware, (req, res) => {
   const { title, content } = req.body
   if (!title || !title.trim()) {
     return res.status(400).json({ error: '标题不能为空' })
@@ -90,7 +90,7 @@ router.post('/', authMiddleware, (req, res) => {
 })
 
 // 删除帖子（仅作者本人或管理员）
-router.delete('/:id', authMiddleware, (req, res) => {
+router.delete('/:id', authMiddleware, teacherMiddleware, (req, res) => {
   const post = db.prepare('SELECT id, user_id FROM posts WHERE id = ?').get(req.params.id)
   if (!post) {
     return res.status(404).json({ error: '帖子不存在' })
@@ -113,7 +113,7 @@ router.delete('/:id', authMiddleware, (req, res) => {
 })
 
 // 投票（点赞/点踩）
-router.post('/:id/vote', authMiddleware, (req, res) => {
+router.post('/:id/vote', authMiddleware, teacherMiddleware, (req, res) => {
   const { voteType } = req.body // 1=赞, -1=踩, 0=取消
   if (![-1, 0, 1].includes(voteType)) {
     return res.status(400).json({ error: '无效的投票类型' })
@@ -169,7 +169,7 @@ router.get('/:id/vote', authMiddleware, (req, res) => {
 })
 
 // 添加评论
-router.post('/:id/comments', authMiddleware, (req, res) => {
+router.post('/:id/comments', authMiddleware, teacherMiddleware, (req, res) => {
   const { content } = req.body
   if (!content || !content.trim()) {
     return res.status(400).json({ error: '评论内容不能为空' })
@@ -205,7 +205,7 @@ router.post('/:id/comments', authMiddleware, (req, res) => {
 })
 
 // 删除评论（仅作者本人或管理员）
-router.delete('/:postId/comments/:commentId', authMiddleware, (req, res) => {
+router.delete('/:postId/comments/:commentId', authMiddleware, teacherMiddleware, (req, res) => {
   const comment = db.prepare(`
     SELECT id, user_id, post_id FROM post_comments WHERE id = ? AND post_id = ?
   `).get(req.params.commentId, req.params.postId)

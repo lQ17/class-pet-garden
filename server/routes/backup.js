@@ -1,11 +1,11 @@
 import { Router } from 'express'
 import { db } from '../db.js'
-import { authMiddleware } from '../middleware/auth.js'
+import { authMiddleware, teacherMiddleware } from '../middleware/auth.js'
 
 const router = Router()
 
 // 导出备份
-router.get('/', authMiddleware, (req, res) => {
+router.get('/', authMiddleware, teacherMiddleware, (req, res) => {
   const backup = {
     version: '2.0.0',
     exportedAt: new Date().toISOString(),
@@ -42,7 +42,7 @@ router.get('/', authMiddleware, (req, res) => {
 })
 
 // 导入备份
-router.post('/', authMiddleware, (req, res) => {
+router.post('/', authMiddleware, teacherMiddleware, (req, res) => {
   const { classes, students, rules, records, badges, products, redemptions, customPets, petImageOverrides, settings } = req.body
 
   if (!classes || !students) {
@@ -57,6 +57,16 @@ router.post('/', authMiddleware, (req, res) => {
     db.prepare('DELETE FROM custom_pets WHERE user_id = ?').run(req.userId)
     db.prepare('DELETE FROM evaluation_records WHERE class_id IN (SELECT id FROM classes WHERE user_id = ?)').run(req.userId)
     db.prepare('DELETE FROM badges WHERE student_id IN (SELECT s.id FROM students s JOIN classes c ON s.class_id = c.id WHERE c.user_id = ?)').run(req.userId)
+    db.prepare(`
+      DELETE FROM users
+      WHERE user_type = 'student'
+        AND id IN (
+          SELECT s.user_id
+          FROM students s
+          JOIN classes c ON s.class_id = c.id
+          WHERE c.user_id = ? AND s.user_id IS NOT NULL
+        )
+    `).run(req.userId)
     db.prepare('DELETE FROM students WHERE class_id IN (SELECT id FROM classes WHERE user_id = ?)').run(req.userId)
     db.prepare('DELETE FROM classes WHERE user_id = ?').run(req.userId)
 

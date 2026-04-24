@@ -34,21 +34,23 @@ export function useStudents() {
   }
 
   // ---------- 学生 CRUD ----------
-  async function addStudent(name: string, studentNo?: string | null) {
+  async function addStudent(name: string, studentNo: string, password: string) {
     if (!currentClass.value || !name.trim()) return
     
     await api.post('/students', {
       classId: currentClass.value.id,
       name: name.trim(),
-      studentNo: studentNo?.trim() || null
+      studentNo: studentNo.trim(),
+      password
     })
     await loadStudents()
   }
 
-  async function updateStudent(id: string, data: { name?: string; studentNo?: string | null }) {
+  async function updateStudent(id: string, data: { name?: string; studentNo?: string | null; password?: string | null }) {
     await api.put(`/students/${id}`, {
       name: data.name?.trim(),
-      studentNo: data.studentNo?.trim() || null
+      studentNo: data.studentNo?.trim() || null,
+      password: data.password || null
     })
     await loadStudents()
   }
@@ -65,14 +67,15 @@ export function useStudents() {
   }
 
   // ---------- 导入 ----------
-  async function importStudents(studentList: Array<{ name: string; studentNo?: string }>) {
+  async function importStudents(studentList: Array<{ name: string; studentNo: string; password: string }>) {
     if (!currentClass.value || studentList.length === 0) return
     
     const res = await api.post('/students/import', {
       classId: currentClass.value.id,
       students: studentList.map(s => ({
         name: s.name.trim(),
-        studentNo: s.studentNo?.trim() || null
+        studentNo: s.studentNo.trim(),
+        password: s.password
       }))
     })
     await loadStudents()

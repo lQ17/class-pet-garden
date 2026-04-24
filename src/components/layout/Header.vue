@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { useClasses } from '@/composables/useClasses'
@@ -14,7 +14,7 @@ defineProps<{
 
 const route = useRoute()
 const router = useRouter()
-const { logout, isAdmin, username } = useAuth()
+const { logout, isAdmin, isStudent, isTeacher, username } = useAuth()
 const { classes, currentClass, selectClass, loadClasses, createClass: doCreateClass, updateClass: doUpdateClass, deleteClass: doDeleteClass, init } = useClasses()
 const toast = useToast()
 const { confirmDialog, showConfirm, closeConfirm } = useConfirm()
@@ -35,6 +35,7 @@ function handleLogout() {
 }
 
 function handleSelectClass(cls: any) {
+  if (isStudent.value) return
   selectClass(cls)
   showClassSelect.value = false
 }
@@ -57,12 +58,12 @@ function handleDeleteClass() {
   showClassSelect.value = false
   showConfirm({
     title: '删除班级',
-    message: '确定删除该班级？所有学生数据将一并删除！',
+    message: '确定删除该班级？所有学生数据将一并删除。',
     confirmText: '删除',
     type: 'danger',
     onConfirm: async () => {
       await doDeleteClass(currentClass.value!.id)
-      toast.success('班级删除成功！')
+      toast.success('班级删除成功')
       await loadClasses()
     }
   })
@@ -73,18 +74,19 @@ async function handleClassSubmit(name: string) {
     toast.warning('请输入班级名称')
     return
   }
+
   try {
     if (editingClass.value) {
       await doUpdateClass(editingClass.value.id, name.trim())
-      toast.success('班级更新成功！')
+      toast.success('班级更新成功')
     } else {
       await doCreateClass(name.trim())
-      toast.success('班级创建成功！')
+      toast.success('班级创建成功')
     }
     showClassModal.value = false
     editingClass.value = null
     await loadClasses()
-  } catch (error) {
+  } catch {
     toast.error(editingClass.value ? '更新班级失败' : '创建班级失败')
   }
 }
@@ -104,14 +106,15 @@ onMounted(() => {
 
       <div class="flex items-center gap-3">
         <div v-if="classes.length > 0" class="relative">
-          <button 
-            @click="showClassSelect = !showClassSelect"
+          <button
+            @click="!isStudent && (showClassSelect = !showClassSelect)"
             class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all bg-white/20 text-white hover:bg-white/30"
           >
             <span>📚</span>
             <span>{{ currentClass?.name || '选择班级' }}</span>
-            <span class="text-white/60">▾</span>
+            <span v-if="!isStudent" class="text-white/60">▼</span>
           </button>
+
           <div v-if="showClassSelect" @click="showClassSelect = false" class="fixed inset-0 z-40"></div>
           <Transition name="dropdown">
             <div v-if="showClassSelect" class="absolute right-0 top-full mt-1.5 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 w-56 z-50 overflow-hidden">
@@ -127,10 +130,11 @@ onMounted(() => {
                   <span>{{ cls.name }}</span>
                 </button>
               </div>
-              <div class="border-t border-gray-100 mt-1 pt-1">
-                <button @click="openCreateClassModal" class="w-full text-left px-4 py-2 text-sm hover:bg-gradient-to-r hover:from-orange-50 hover:to-pink-50 transition-colors">➕ 新建班级</button>
-                <button v-if="currentClass" @click="openEditClassModal" class="w-full text-left px-4 py-2 text-sm hover:bg-gradient-to-r hover:from-orange-50 hover:to-pink-50 transition-colors">✏️ 重命名班级</button>
-                <button v-if="currentClass" @click="handleDeleteClass" class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors">🗑️ 删除班级</button>
+
+              <div v-if="isTeacher" class="border-t border-gray-100 mt-1 pt-1">
+                <button @click="openCreateClassModal" class="w-full text-left px-4 py-2 text-sm hover:bg-gradient-to-r hover:from-orange-50 hover:to-pink-50 transition-colors">+ 新建班级</button>
+                <button v-if="currentClass" @click="openEditClassModal" class="w-full text-left px-4 py-2 text-sm hover:bg-gradient-to-r hover:from-orange-50 hover:to-pink-50 transition-colors">重命名班级</button>
+                <button v-if="currentClass" @click="handleDeleteClass" class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors">删除班级</button>
               </div>
             </div>
           </Transition>
@@ -145,8 +149,10 @@ onMounted(() => {
           <div v-if="showUserMenu" @click="showUserMenu = false" class="fixed inset-0 z-40"></div>
           <Transition name="dropdown">
             <div v-if="showUserMenu" class="absolute right-0 top-full mt-1.5 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 w-44 z-50 overflow-hidden">
-              <div class="px-3 py-2 text-sm text-gray-500 border-b border-gray-100">已登录: {{ username }}</div>
-              <button @click="handleLogout" class="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors">🚪 退出登录</button>
+              <div class="px-3 py-2 text-sm text-gray-500 border-b border-gray-100">
+                已登录：{{ username }}
+              </div>
+              <button @click="handleLogout" class="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors">退出登录</button>
             </div>
           </Transition>
         </div>
@@ -154,18 +160,18 @@ onMounted(() => {
     </div>
 
     <div class="px-4 py-2 flex items-center border-t border-white/20 bg-white/10">
-      <nav class="flex items-center gap-1 flex-1">
-        <router-link to="/" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all" :class="isActive('/') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'">🏠 首页</router-link>
-        <router-link to="/ranking" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all" :class="isActive('/ranking') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'">🏆 排行</router-link>
-        <router-link to="/records" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all" :class="isActive('/records') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'">📋 记录</router-link>
-        <router-link to="/students" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all" :class="isActive('/students') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'">👥 学生</router-link>
-        <router-link to="/preview" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all" :class="isActive('/preview') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'">📖 图鉴</router-link>
-        <router-link to="/shop" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all" :class="isActive('/shop') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'">🛒 商城</router-link>
-        <router-link to="/settings" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all" :class="isActive('/settings') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'">⚙️ 设置</router-link>
-        <router-link v-if="isAdmin" to="/admin" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all" :class="isActive('/admin') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'">🔐 管理</router-link>
+      <nav class="flex items-center gap-1 flex-1 overflow-x-auto">
+        <router-link to="/" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap" :class="isActive('/') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'">首页</router-link>
+        <router-link to="/ranking" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap" :class="isActive('/ranking') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'">排行</router-link>
+        <router-link v-if="isTeacher" to="/records" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap" :class="isActive('/records') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'">记录</router-link>
+        <router-link v-if="isTeacher" to="/students" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap" :class="isActive('/students') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'">学生</router-link>
+        <router-link to="/preview" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap" :class="isActive('/preview') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'">图鉴</router-link>
+        <router-link to="/shop" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap" :class="isActive('/shop') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'">商城</router-link>
+        <router-link v-if="isTeacher" to="/settings" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap" :class="isActive('/settings') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'">设置</router-link>
+        <router-link v-if="isAdmin" to="/admin" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap" :class="isActive('/admin') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'">管理</router-link>
       </nav>
-      <nav class="flex items-center">
-        <router-link to="/posts" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all" :class="isActive('/posts') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'">💬 留言</router-link>
+      <nav v-if="isTeacher" class="flex items-center">
+        <router-link to="/posts" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap" :class="isActive('/posts') ? 'bg-white text-orange-600 shadow-md' : 'text-white/90 hover:bg-white/20'">留言</router-link>
       </nav>
     </div>
   </header>
@@ -180,6 +186,15 @@ onMounted(() => {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
-.dropdown-enter-active, .dropdown-leave-active { transition: all 0.15s ease; }
-.dropdown-enter-from, .dropdown-leave-to { opacity: 0; transform: translateY(-8px); }
+
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: all 0.15s ease;
+}
+
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
 </style>

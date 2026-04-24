@@ -3,6 +3,7 @@ import multer from 'multer'
 import { v4 as uuidv4 } from 'uuid'
 import { db } from '../db.js'
 import { authMiddleware, teacherMiddleware } from '../middleware/auth.js'
+import { getTeacherUserIdForRequest } from '../middleware/ownership.js'
 import { isSupportedImageMimeType, saveUploadedImage } from '../utils/uploadedImageStorage.js'
 
 const router = Router()
@@ -102,17 +103,18 @@ async function savePetImage(file) {
 }
 
 router.get('/', authMiddleware, (req, res) => {
+  const ownerUserId = getTeacherUserIdForRequest(req)
   const pets = db.prepare(`
     SELECT id, name, category, level_images, created_at, updated_at
     FROM custom_pets
     WHERE user_id = ?
     ORDER BY created_at DESC
-  `).all(req.userId)
+  `).all(ownerUserId)
   const overrides = db.prepare(`
     SELECT pet_id, level_images
     FROM pet_image_overrides
     WHERE user_id = ?
-  `).all(req.userId)
+  `).all(ownerUserId)
   const imageOverrides = {}
 
   for (const override of overrides) {

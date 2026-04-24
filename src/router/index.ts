@@ -28,11 +28,14 @@ const router = createRouter({
 })
 
 router.beforeEach((to, _from, next) => {
-  const { isLoggedIn, isAdmin } = useAuth()
+  const { isLoggedIn, isAdmin, isStudent } = useAuth()
+  const studentAllowedPaths = new Set(['/', '/ranking', '/shop', '/preview'])
 
   if (to.meta.requiresAuth && !isLoggedIn.value) {
     next('/login')
   } else if (to.meta.requiresAdmin && !isAdmin.value) {
+    next('/')
+  } else if (isStudent.value && !studentAllowedPaths.has(to.path)) {
     next('/')
   } else if (to.path === '/login' && isLoggedIn.value) {
     next('/')

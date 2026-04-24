@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { v4 as uuidv4 } from 'uuid'
 import { db } from '../db.js'
-import { authMiddleware } from '../middleware/auth.js'
+import { authMiddleware, teacherMiddleware } from '../middleware/auth.js'
 import { verifyStudentOwnership } from '../middleware/ownership.js'
 
 const router = Router()
@@ -27,7 +27,7 @@ router.get('/settings', authMiddleware, (req, res) => {
 })
 
 // 更新复活功能开关
-router.put('/settings', authMiddleware, (req, res) => {
+router.put('/settings', authMiddleware, teacherMiddleware, (req, res) => {
   const { enabled } = req.body
   db.prepare('UPDATE users SET revival_enabled = ? WHERE id = ?').run(enabled ? 1 : 0, req.userId)
   res.json({ success: true })
@@ -70,7 +70,7 @@ router.get('/tasks', authMiddleware, (req, res) => {
 })
 
 // 更新预置任务启用状态
-router.put('/tasks/preset/:taskId', authMiddleware, (req, res) => {
+router.put('/tasks/preset/:taskId', authMiddleware, teacherMiddleware, (req, res) => {
   const { taskId } = req.params
   const { enabled } = req.body
 
@@ -104,7 +104,7 @@ router.put('/tasks/preset/:taskId', authMiddleware, (req, res) => {
 })
 
 // 添加自定义任务
-router.post('/tasks/custom', authMiddleware, (req, res) => {
+router.post('/tasks/custom', authMiddleware, teacherMiddleware, (req, res) => {
   const { name, description } = req.body
 
   if (!name || !name.trim()) {
@@ -138,7 +138,7 @@ router.post('/tasks/custom', authMiddleware, (req, res) => {
 })
 
 // 删除自定义任务
-router.delete('/tasks/custom/:taskId', authMiddleware, (req, res) => {
+router.delete('/tasks/custom/:taskId', authMiddleware, teacherMiddleware, (req, res) => {
   const { taskId } = req.params
 
   const task = db.prepare(`
@@ -158,7 +158,7 @@ router.delete('/tasks/custom/:taskId', authMiddleware, (req, res) => {
 })
 
 // 更新自定义任务
-router.put('/tasks/custom/:taskId', authMiddleware, (req, res) => {
+router.put('/tasks/custom/:taskId', authMiddleware, teacherMiddleware, (req, res) => {
   const { taskId } = req.params
   const { name, description } = req.body
 
@@ -206,7 +206,7 @@ router.get('/students/:studentId/tasks', authMiddleware, (req, res) => {
 })
 
 // 为学生分配复活任务
-router.post('/students/:studentId/tasks', authMiddleware, (req, res) => {
+router.post('/students/:studentId/tasks', authMiddleware, teacherMiddleware, (req, res) => {
   const { studentId } = req.params
   const { taskIds } = req.body
 
@@ -271,7 +271,7 @@ router.post('/students/:studentId/tasks', authMiddleware, (req, res) => {
 })
 
 // 标记任务完成
-router.put('/students/:studentId/tasks/:taskId/complete', authMiddleware, (req, res) => {
+router.put('/students/:studentId/tasks/:taskId/complete', authMiddleware, teacherMiddleware, (req, res) => {
   const { studentId, taskId } = req.params
 
   // 验证学生归属
@@ -297,7 +297,7 @@ router.put('/students/:studentId/tasks/:taskId/complete', authMiddleware, (req, 
 })
 
 // 取消任务完成
-router.put('/students/:studentId/tasks/:taskId/uncomplete', authMiddleware, (req, res) => {
+router.put('/students/:studentId/tasks/:taskId/uncomplete', authMiddleware, teacherMiddleware, (req, res) => {
   const { studentId, taskId } = req.params
 
   // 验证学生归属
@@ -315,7 +315,7 @@ router.put('/students/:studentId/tasks/:taskId/uncomplete', authMiddleware, (req
 })
 
 // 确认复活
-router.post('/students/:studentId/revive', authMiddleware, (req, res) => {
+router.post('/students/:studentId/revive', authMiddleware, teacherMiddleware, (req, res) => {
   const { studentId } = req.params
 
   // 验证学生归属
@@ -358,7 +358,7 @@ router.post('/students/:studentId/revive', authMiddleware, (req, res) => {
 })
 
 // 移除学生的复活任务
-router.delete('/students/:studentId/tasks', authMiddleware, (req, res) => {
+router.delete('/students/:studentId/tasks', authMiddleware, teacherMiddleware, (req, res) => {
   const { studentId } = req.params
 
   // 验证学生归属

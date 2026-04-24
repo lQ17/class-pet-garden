@@ -1,8 +1,8 @@
 import { Router } from 'express'
 import { v4 as uuidv4 } from 'uuid'
 import { db } from '../db.js'
-import { authMiddleware } from '../middleware/auth.js'
-import { verifyTagOwnership, verifyStudentsOwnership } from '../middleware/ownership.js'
+import { authMiddleware, teacherMiddleware } from '../middleware/auth.js'
+import { getTeacherUserIdForRequest, verifyTagOwnership } from '../middleware/ownership.js'
 
 const router = Router()
 
@@ -14,17 +14,18 @@ const PRESET_COLORS = [
 
 // 获取标签列表
 router.get('/', authMiddleware, (req, res) => {
+  const ownerUserId = getTeacherUserIdForRequest(req)
   const tags = db.prepare(`
     SELECT * FROM student_tags
     WHERE user_id = ?
     ORDER BY created_at DESC
-  `).all(req.userId)
+  `).all(ownerUserId)
 
   res.json({ tags })
 })
 
 // 添加标签
-router.post('/', authMiddleware, (req, res) => {
+router.post('/', authMiddleware, teacherMiddleware, (req, res) => {
   const { name, color } = req.body
 
   if (!name || !name.trim()) {
@@ -59,7 +60,7 @@ router.post('/', authMiddleware, (req, res) => {
 })
 
 // 更新标签
-router.put('/:id', authMiddleware, (req, res) => {
+router.put('/:id', authMiddleware, teacherMiddleware, (req, res) => {
   const { name, color } = req.body
   const tagId = req.params.id
 
@@ -97,7 +98,7 @@ router.put('/:id', authMiddleware, (req, res) => {
 })
 
 // 删除标签
-router.delete('/:id', authMiddleware, (req, res) => {
+router.delete('/:id', authMiddleware, teacherMiddleware, (req, res) => {
   const tagId = req.params.id
 
   const tag = verifyTagOwnership(tagId, req.userId)
@@ -119,19 +120,20 @@ router.get('/colors', (req, res) => {
 // 获取学生的标签
 router.get('/student/:studentId', authMiddleware, (req, res) => {
   const { studentId } = req.params
+  const ownerUserId = getTeacherUserIdForRequest(req)
 
   const tags = db.prepare(`
     SELECT st.* FROM student_tags st
     JOIN student_tag_relations str ON st.id = str.tag_id
     WHERE str.student_id = ? AND st.user_id = ?
     ORDER BY str.created_at DESC
-  `).all(studentId, req.userId)
+  `).all(studentId, ownerUserId)
 
   res.json({ tags })
 })
 
 // 给学生添加标签
-router.post('/student/:studentId', authMiddleware, (req, res) => {
+router.post('/student/:studentId', authMiddleware, teacherMiddleware, (req, res) => {
   const { studentId } = req.params
   const { tagId } = req.body
 
@@ -165,7 +167,7 @@ router.post('/student/:studentId', authMiddleware, (req, res) => {
 })
 
 // 移除学生的标签
-router.delete('/student/:studentId/:tagId', authMiddleware, (req, res) => {
+router.delete('/student/:studentId/:tagId', authMiddleware, teacherMiddleware, (req, res) => {
   const { studentId, tagId } = req.params
 
   const tag = verifyTagOwnership(tagId, req.userId)
@@ -182,7 +184,7 @@ router.delete('/student/:studentId/:tagId', authMiddleware, (req, res) => {
 })
 
 // 批量给学生添加标签
-router.post('/batch-add', authMiddleware, (req, res) => {
+router.post('/batch-add', authMiddleware, teacherMiddleware, (req, res) => {
   const { studentIds, tagId } = req.body
 
   if (!studentIds || !Array.isArray(studentIds) || studentIds.length === 0) {
@@ -216,7 +218,7 @@ router.post('/batch-add', authMiddleware, (req, res) => {
 })
 
 // 批量移除学生的标签
-router.post('/batch-remove', authMiddleware, (req, res) => {
+router.post('/batch-remove', authMiddleware, teacherMiddleware, (req, res) => {
   const { studentIds, tagId } = req.body
 
   if (!studentIds || !Array.isArray(studentIds) || studentIds.length === 0) {

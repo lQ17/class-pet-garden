@@ -10,7 +10,7 @@ import PageLayout from '@/components/layout/PageLayout.vue'
 import CreatePetModal from '@/components/modals/CreatePetModal.vue'
 import EditPetImagesModal from '@/components/modals/EditPetImagesModal.vue'
 
-const { user, isAdmin } = useAuth()
+const { isTeacher } = useAuth()
 const { pets, loadCustomPets, deleteCustomPet } = usePets()
 const toast = useToast()
 
@@ -30,7 +30,7 @@ const deletingPet = ref(false)
 const normalPets = computed(() => pets.value.filter(p => p.category === 'normal'))
 const mythicalPets = computed(() => pets.value.filter(p => p.category === 'mythical'))
 const selectedPetData = computed(() => pets.value.find(p => p.id === selectedPet.value) || null)
-const canManagePets = computed(() => !!user.value && (isAdmin.value || !user.value.isGuest))
+const canManagePets = computed(() => isTeacher.value)
 
 onMounted(async () => {
   await loadCustomPets()

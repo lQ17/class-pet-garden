@@ -1,8 +1,8 @@
 import { Router } from 'express'
 import { v4 as uuidv4 } from 'uuid'
 import { db } from '../db.js'
-import { authMiddleware } from '../middleware/auth.js'
-import { verifyRuleOwnership } from '../middleware/ownership.js'
+import { authMiddleware, teacherMiddleware } from '../middleware/auth.js'
+import { getTeacherUserIdForRequest } from '../middleware/ownership.js'
 
 const router = Router()
 
@@ -128,6 +128,7 @@ function copyDefaultRules(userId) {
 
 // 获取规则列表
 router.get('/', authMiddleware, (req, res) => {
+  const ownerUserId = getTeacherUserIdForRequest(req)
   let rules = db.prepare(`
     SELECT * FROM evaluation_rules
     WHERE user_id = ?
@@ -135,10 +136,13 @@ router.get('/', authMiddleware, (req, res) => {
       CASE WHEN points > 0 THEN 0 ELSE 1 END,
       points DESC,
       created_at DESC
-  `).all(req.userId)
+  `).all(ownerUserId)
   
   if (rules.length === 0) {
-    copyDefaultRules(req.userId)
+    if (req.user?.user_type === 'student') {
+      return res.json({ rules: [] })
+    }
+    copyDefaultRules(ownerUserId)
     rules = db.prepare(`
       SELECT * FROM evaluation_rules
       WHERE user_id = ?
@@ -146,14 +150,14 @@ router.get('/', authMiddleware, (req, res) => {
         CASE WHEN points > 0 THEN 0 ELSE 1 END,
         points DESC,
         created_at DESC
-    `).all(req.userId)
+    `).all(ownerUserId)
   }
   
   res.json({ rules })
 })
 
 // 添加规则
-router.post('/', authMiddleware, (req, res) => {
+router.post('/', authMiddleware, teacherMiddleware, (req, res) => {
   const { name, points, category } = req.body
   
   if (!name || !name.trim()) {
@@ -179,7 +183,7 @@ router.post('/', authMiddleware, (req, res) => {
 })
 
 // 重置为默认规则
-router.post('/reset', authMiddleware, (req, res) => {
+router.post('/reset', authMiddleware, teacherMiddleware, (req, res) => {
   try {
     db.prepare('DELETE FROM evaluation_rules WHERE user_id = ?').run(req.userId)
     const count = copyDefaultRules(req.userId)
@@ -198,7 +202,7 @@ router.post('/reset', authMiddleware, (req, res) => {
 })
 
 // 更新规则
-router.put('/:id', authMiddleware, (req, res) => {
+router.put('/:id', authMiddleware, teacherMiddleware, (req, res) => {
   const { name, points, category } = req.body
   
   const result = db.prepare(`
@@ -215,7 +219,7 @@ router.put('/:id', authMiddleware, (req, res) => {
 })
 
 // 删除规则
-router.delete('/:id', authMiddleware, (req, res) => {
+router.delete('/:id', authMiddleware, teacherMiddleware, (req, res) => {
   const result = db.prepare(`
     DELETE FROM evaluation_rules 
     WHERE id = ? AND user_id = ?
@@ -230,6 +234,9 @@ router.delete('/:id', authMiddleware, (req, res) => {
 
 // 获取用户最常用的规则
 router.get('/frequent', authMiddleware, (req, res) => {
+  if (req.user?.user_type === 'student') {
+    return res.json({ rules: [] })
+  }
   const frequentRules = db.prepare(`
     SELECT 
       er.reason as name,
