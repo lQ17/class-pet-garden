@@ -223,7 +223,7 @@ watch(() => currentClass.value?.id, async (classId, previousClassId) => {
           <button @click="showAddForm = true" class="mt-4 text-orange-500 hover:text-orange-600 font-medium">添加第一个学生</button>
         </div>
 
-        <div v-else class="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <div v-else class="relative bg-white rounded-2xl shadow-sm overflow-visible">
           <div class="grid grid-cols-12 gap-4 px-4 py-3 bg-gray-50 border-b border-gray-100 text-sm font-medium text-gray-500">
             <div class="col-span-5">姓名 / 标签</div>
             <div class="col-span-3">学号/登录账号</div>
