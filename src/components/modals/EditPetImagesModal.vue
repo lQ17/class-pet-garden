@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onBeforeUnmount } from 'vue'
+import { onBeforeUnmount, ref, watch } from 'vue'
 import type { PetType } from '@/data/pets'
 import { usePets } from '@/composables/usePets'
 import { useToast } from '@/composables/useToast'
@@ -17,7 +17,7 @@ const emit = defineEmits<{
 const { updatePetImages } = usePets()
 const toast = useToast()
 
-const MAX_PET_IMAGE_SIZE = 8 * 1024 * 1024
+const MAX_PET_IMAGE_SIZE = 10 * 1024 * 1024
 const submitting = ref(false)
 const stageFiles = ref<(File | null)[]>(Array.from({ length: 8 }, () => null))
 const stagePreviews = ref<string[]>(Array.from({ length: 8 }, () => ''))
@@ -54,7 +54,7 @@ function handleFileChange(index: number, event: Event) {
 
   if (file.size > MAX_PET_IMAGE_SIZE) {
     target.value = ''
-    toast.warning('单张宠物图片不能超过 8MB，请压缩后再上传')
+    toast.warning('单张宠物图片不能超过 10MB')
     return
   }
 
@@ -157,7 +157,7 @@ onBeforeUnmount(() => {
                     class="h-full w-full object-contain"
                   />
                   <div v-else class="flex h-full flex-col items-center justify-center text-center text-gray-400">
-                    <div class="text-4xl">＋</div>
+                    <div class="text-4xl">+</div>
                     <div class="mt-2 text-sm">选择 Lv.{{ index + 1 }} 图片</div>
                   </div>
                   <div v-if="stageFiles[index]" class="absolute bottom-3 left-3 rounded-full bg-pink-500 px-3 py-1 text-xs font-semibold text-white shadow">

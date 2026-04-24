@@ -1,14 +1,12 @@
 import { Router } from 'express'
 import multer from 'multer'
-import sharp from 'sharp'
 import { v4 as uuidv4 } from 'uuid'
-import { join } from 'path'
 import { db } from '../db.js'
 import { authMiddleware, teacherMiddleware } from '../middleware/auth.js'
-import { getProductImageUrl, productImagesDir } from '../utils/productImages.js'
+import { isSupportedImageMimeType, saveUploadedImage } from '../utils/uploadedImageStorage.js'
 
 const router = Router()
-const MAX_PET_IMAGE_SIZE = 8 * 1024 * 1024
+const MAX_PET_IMAGE_SIZE = 10 * 1024 * 1024
 const FALLBACK_PET_TYPE = 'orange-cat'
 const STATIC_PET_IDS = new Set([
   'west-highland',
@@ -45,8 +43,8 @@ const upload = multer({
     files: 8
   },
   fileFilter: (_req, file, cb) => {
-    if (!file.mimetype.startsWith('image/')) {
-      cb(new Error('只能上传图片文件'))
+    if (!isSupportedImageMimeType(file.mimetype)) {
+      cb(new Error('只支持 JPG、PNG、WebP、GIF、AVIF、BMP 图片'))
       return
     }
 
@@ -100,19 +98,7 @@ function normalizeArray(value) {
 }
 
 async function savePetImage(file) {
-  const filename = `${uuidv4()}.webp`
-  const filepath = join(productImagesDir, filename)
-
-  await sharp(file.buffer)
-    .rotate()
-    .resize(1200, 1200, {
-      fit: 'inside',
-      withoutEnlargement: true
-    })
-    .webp({ quality: 80 })
-    .toFile(filepath)
-
-  return getProductImageUrl(filename)
+  return saveUploadedImage(file)
 }
 
 router.get('/', authMiddleware, (req, res) => {
@@ -319,7 +305,7 @@ router.delete('/:id', authMiddleware, teacherMiddleware, (req, res) => {
 router.use((error, _req, res, next) => {
   if (error instanceof multer.MulterError) {
     if (error.code === 'LIMIT_FILE_SIZE') {
-      return res.status(413).json({ error: '宠物图片过大，请压缩后重试（单张不超过 8MB）' })
+      return res.status(413).json({ error: `单张宠物图片不能超过 ${Math.floor(MAX_PET_IMAGE_SIZE / 1024 / 1024)}MB` })
     }
 
     if (error.code === 'LIMIT_FILE_COUNT') {

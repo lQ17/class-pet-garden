@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onBeforeUnmount } from 'vue'
+import { onBeforeUnmount, ref, watch } from 'vue'
 import { useAuth } from '@/composables/useAuth'
 import { useToast } from '@/composables/useToast'
 import type { PetType } from '@/data/pets'
@@ -16,7 +16,7 @@ const emit = defineEmits<{
 const { api } = useAuth()
 const toast = useToast()
 
-const MAX_PET_IMAGE_SIZE = 8 * 1024 * 1024
+const MAX_PET_IMAGE_SIZE = 10 * 1024 * 1024
 
 const submitting = ref(false)
 const form = ref({
@@ -54,7 +54,7 @@ function handleFileChange(index: number, event: Event) {
 
   if (file.size > MAX_PET_IMAGE_SIZE) {
     target.value = ''
-    toast.warning('单张宠物图片不能超过 8MB，请压缩后再上传')
+    toast.warning('单张宠物图片不能超过 10MB')
     return
   }
 
@@ -121,7 +121,7 @@ onBeforeUnmount(() => {
         <div class="flex items-center justify-between gap-4 rounded-t-3xl bg-gradient-to-r from-orange-500 via-pink-500 to-rose-500 px-6 py-5 text-white">
           <div>
             <h3 class="text-2xl font-bold">新增图鉴宠物</h3>
-            <p class="mt-1 text-sm text-white/85">同一表单内可选择普通宠物或神兽，需上传固定 8 个阶段图片。</p>
+            <p class="mt-1 text-sm text-white/85">同一表单内可选择普通宠物或神兽，需要上传固定 8 个阶段图片。</p>
           </div>
           <button class="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-2xl transition-colors hover:bg-white/30" @click="close">×</button>
         </div>
@@ -155,7 +155,7 @@ onBeforeUnmount(() => {
             <div class="mb-3 flex items-center justify-between">
               <div>
                 <h4 class="text-lg font-bold text-gray-800">8 个阶段图片</h4>
-                <p class="text-sm text-gray-500">按 `1-8 阶` 顺序上传，创建后会直接用于图鉴和领养列表。</p>
+                <p class="text-sm text-gray-500">按 1-8 阶顺序上传，创建后会直接用于图鉴和领养列表。</p>
               </div>
               <div class="rounded-full bg-orange-50 px-4 py-2 text-sm font-medium text-orange-600">
                 {{ stageFiles.filter(Boolean).length }}/8 已上传

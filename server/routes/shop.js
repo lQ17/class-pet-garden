@@ -1,24 +1,24 @@
 import { Router } from 'express'
+import multer from 'multer'
+import { v4 as uuidv4 } from 'uuid'
 import { db } from '../db.js'
 import { authMiddleware } from '../middleware/auth.js'
-import multer from 'multer'
-import sharp from 'sharp'
-import { v4 as uuidv4 } from 'uuid'
-import { join } from 'path'
-import { getProductImageUrl, productImagesDir } from '../utils/productImages.js'
-
-const upload = multer({
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    if (!file.mimetype.startsWith('image/')) {
-      cb(new Error('只允许上传图片'))
-    } else {
-      cb(null, true)
-    }
-  }
-})
+import { isSupportedImageMimeType, saveUploadedImage } from '../utils/uploadedImageStorage.js'
 
 const router = Router()
+const MAX_PRODUCT_IMAGE_SIZE = 10 * 1024 * 1024
+
+const upload = multer({
+  limits: { fileSize: MAX_PRODUCT_IMAGE_SIZE },
+  fileFilter: (_req, file, cb) => {
+    if (!isSupportedImageMimeType(file.mimetype)) {
+      cb(new Error('只支持 JPG、PNG、WebP、GIF、AVIF、BMP 图片'))
+      return
+    }
+
+    cb(null, true)
+  }
+})
 
 router.post('/upload-image', authMiddleware, upload.single('image'), async (req, res) => {
   if (!req.file) {
@@ -26,18 +26,11 @@ router.post('/upload-image', authMiddleware, upload.single('image'), async (req,
   }
 
   try {
-    const filename = `${uuidv4()}.webp`
-    const filepath = join(productImagesDir, filename)
-
-    await sharp(req.file.buffer)
-      .webp({ quality: 75 })
-      .toFile(filepath)
-
-    const imageUrl = getProductImageUrl(filename)
+    const imageUrl = await saveUploadedImage(req.file)
     res.json({ imageUrl })
   } catch (error) {
-    console.error('图片处理失败:', error)
-    res.status(500).json({ error: '图片处理失败' })
+    console.error('保存商品图片失败:', error)
+    res.status(500).json({ error: '保存商品图片失败' })
   }
 })
 
@@ -51,22 +44,38 @@ router.post('/products', authMiddleware, (req, res) => {
   const { name, description, price, stock = -1, imageUrl, isEnabled = true, sortOrder = 0 } = req.body
   const id = uuidv4()
   const now = Date.now()
+
   db.prepare(
     'INSERT INTO products (id, user_id, name, description, price, stock, image_url, is_enabled, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   ).run(id, req.userId, name, description, price, stock, imageUrl || null, isEnabled ? 1 : 0, sortOrder, now, now)
-  res.json({ id, name, description, price, stock, image_url: imageUrl, is_enabled: isEnabled, sort_order: sortOrder, created_at: now, updated_at: now })
+
+  res.json({
+    id,
+    name,
+    description,
+    price,
+    stock,
+    image_url: imageUrl,
+    is_enabled: isEnabled,
+    sort_order: sortOrder,
+    created_at: now,
+    updated_at: now
+  })
 })
 
 router.put('/products/:id', authMiddleware, (req, res) => {
   const { name, description, price, stock, imageUrl, isEnabled, sortOrder } = req.body
   const now = Date.now()
   const product = db.prepare('SELECT * FROM products WHERE id = ? AND user_id = ? AND is_deleted = 0').get(req.params.id, req.userId)
+
   if (!product) {
     return res.status(404).json({ error: '商品不存在或无权访问' })
   }
+
   db.prepare(
     'UPDATE products SET name = ?, description = ?, price = ?, stock = ?, image_url = ?, is_enabled = ?, sort_order = ?, updated_at = ? WHERE id = ?'
   ).run(name, description, price, stock, imageUrl || null, isEnabled ? 1 : 0, sortOrder, now, req.params.id)
+
   res.json({ success: true })
 })
 
@@ -84,10 +93,11 @@ router.delete('/products/:id', authMiddleware, (req, res) => {
       const now = Date.now()
       db.prepare('UPDATE products SET is_deleted = 1, updated_at = ? WHERE id = ?').run(now, req.params.id)
       res.json({ success: true, softDeleted: true })
-    } else {
-      db.prepare('DELETE FROM products WHERE id = ?').run(req.params.id)
-      res.json({ success: true, softDeleted: false })
+      return
     }
+
+    db.prepare('DELETE FROM products WHERE id = ?').run(req.params.id)
+    res.json({ success: true, softDeleted: false })
   } catch (error) {
     console.error('删除商品错误:', error)
     res.status(500).json({ error: '删除失败' })
@@ -164,15 +174,12 @@ router.post('/redeem', authMiddleware, (req, res) => {
 
   db.prepare('BEGIN TRANSACTION').run()
   try {
-    // 扣除可用积分
     db.prepare('UPDATE students SET usable_points = usable_points - ? WHERE id = ?').run(product.price, studentId)
 
-    // 减少库存（如果不是无限库存）
     if (product.stock !== -1) {
       db.prepare('UPDATE products SET stock = stock - 1 WHERE id = ?').run(productId)
     }
 
-    // 记录兑换
     db.prepare(
       'INSERT INTO redemption_records (id, user_id, student_id, product_id, product_name, price, redeemed_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
     ).run(id, req.userId, studentId, productId, product.name, product.price, now)
@@ -184,6 +191,18 @@ router.post('/redeem', authMiddleware, (req, res) => {
     console.error('兑换失败:', error)
     res.status(500).json({ error: '兑换失败，请重试' })
   }
+})
+
+router.use((error, _req, res, next) => {
+  if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({ error: `商品图片不能超过 ${Math.floor(MAX_PRODUCT_IMAGE_SIZE / 1024 / 1024)}MB` })
+  }
+
+  if (error) {
+    return res.status(400).json({ error: error.message || '图片上传失败，请检查文件后重试' })
+  }
+
+  next()
 })
 
 export default router
