@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import type { Student } from '@/types'
+import { computed, onMounted, ref, watch } from 'vue'
+import type { Student, Tag } from '@/types'
 import { useClasses } from '@/composables/useClasses'
 import { useStudents } from '@/composables/useStudents'
+import { useTags } from '@/composables/useTags'
 import { useToast } from '@/composables/useToast'
 import { useConfirm } from '@/composables/useConfirm'
 import { matchByPinyin } from '@/utils/pinyin'
@@ -12,6 +13,7 @@ import ClassModal from '@/components/modals/ClassModal.vue'
 
 const { classes, currentClass, createClass } = useClasses()
 const { students, isLoading, loadStudents, addStudent, updateStudent, deleteStudent, importStudents } = useStudents()
+const { allTags, loadTags, loadAllStudentTags, getStudentTags, addTagsToStudents, removeTagsFromStudents } = useTags()
 const toast = useToast()
 const { confirmDialog, showConfirm, closeConfirm } = useConfirm()
 
@@ -26,6 +28,7 @@ const importText = ref('')
 const editingStudent = ref<Student | null>(null)
 const editName = ref('')
 const editPassword = ref('')
+const tagMenuStudentId = ref<string | null>(null)
 
 const filteredStudents = computed(() => {
   if (!searchQuery.value.trim()) return students.value
@@ -37,6 +40,13 @@ const filteredStudents = computed(() => {
     return matchByPinyin(student.name, query)
   })
 })
+
+async function reloadStudentsPageData() {
+  if (!currentClass.value) return
+  await loadStudents()
+  await loadTags()
+  await loadAllStudentTags(students.value.map(student => student.id))
+}
 
 async function handleCreateClass(name: string) {
   if (!name.trim()) {
@@ -61,6 +71,7 @@ async function handleAddStudent() {
 
   try {
     await addStudent(newStudentName.value.trim(), newStudentNo.value.trim(), newPassword.value)
+    await reloadStudentsPageData()
     toast.success('学生账号已创建')
     newStudentName.value = ''
     newStudentNo.value = ''
@@ -92,6 +103,7 @@ async function handleSaveEdit() {
       studentNo: editingStudent.value.student_no,
       password: editPassword.value || null
     })
+    await reloadStudentsPageData()
     toast.success('保存成功')
     cancelEdit()
   } catch (error: any) {
@@ -108,6 +120,7 @@ function handleDeleteStudent(student: Student) {
     onConfirm: async () => {
       try {
         await deleteStudent(student.id)
+        await reloadStudentsPageData()
         toast.success('删除成功')
       } catch (error: any) {
         toast.error(error.response?.data?.error || '删除失败')
@@ -133,6 +146,7 @@ async function handleImportStudents() {
 
   try {
     const res = await importStudents(rows)
+    await reloadStudentsPageData()
     const skipped = res?.skipped?.length || 0
     toast.success(skipped > 0 ? `导入 ${res.imported} 名，跳过 ${skipped} 名` : `成功导入 ${res?.imported || rows.length} 名学生`)
     importText.value = ''
@@ -142,10 +156,34 @@ async function handleImportStudents() {
   }
 }
 
-onMounted(async () => {
-  if (currentClass.value) {
-    await loadStudents()
+async function handleAddTag(student: Student, tag: Tag) {
+  try {
+    await addTagsToStudents([student.id], tag.id)
+    tagMenuStudentId.value = null
+    toast.success(`已为 ${student.name} 添加标签`)
+  } catch (error: any) {
+    toast.error(error.response?.data?.error || '添加标签失败')
   }
+}
+
+async function handleRemoveTag(student: Student, tag: Tag) {
+  try {
+    await removeTagsFromStudents([student.id], tag.id)
+    toast.success(`已从 ${student.name} 移除标签`)
+  } catch (error: any) {
+    toast.error(error.response?.data?.error || '移除标签失败')
+  }
+}
+
+onMounted(async () => {
+  await reloadStudentsPageData()
+})
+
+watch(() => currentClass.value?.id, async (classId, previousClassId) => {
+  if (!classId || classId === previousClassId) return
+  editingStudent.value = null
+  tagMenuStudentId.value = null
+  await reloadStudentsPageData()
 })
 </script>
 
@@ -187,31 +225,72 @@ onMounted(async () => {
 
         <div v-else class="bg-white rounded-2xl shadow-sm overflow-hidden">
           <div class="grid grid-cols-12 gap-4 px-4 py-3 bg-gray-50 border-b border-gray-100 text-sm font-medium text-gray-500">
-            <div class="col-span-4">姓名</div>
+            <div class="col-span-5">姓名 / 标签</div>
             <div class="col-span-3">学号/登录账号</div>
             <div class="col-span-2 text-center">{{ editingStudent ? '重置密码' : '累计积分' }}</div>
-            <div class="col-span-3 text-right">操作</div>
+            <div class="col-span-2 text-right">操作</div>
           </div>
 
           <div v-for="student in filteredStudents" :key="student.id" class="grid grid-cols-12 gap-4 px-4 py-3 border-b border-gray-50 hover:bg-gray-50/50 transition-colors items-center">
             <template v-if="editingStudent?.id === student.id">
-              <div class="col-span-4">
+              <div class="col-span-5">
                 <input v-model="editName" type="text" class="w-full border-2 border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-orange-400" />
               </div>
               <div class="col-span-3 text-sm text-gray-500">{{ student.student_no }}</div>
               <div class="col-span-2">
                 <input v-model="editPassword" type="password" placeholder="留空不改密码" class="w-full border-2 border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-orange-400" />
               </div>
-              <div class="col-span-3 text-right">
+              <div class="col-span-2 text-right">
                 <button @click="handleSaveEdit" class="text-green-500 hover:text-green-600 text-sm font-medium px-2 py-1">保存</button>
                 <button @click="cancelEdit" class="text-gray-400 hover:text-gray-600 text-sm font-medium px-2 py-1">取消</button>
               </div>
             </template>
             <template v-else>
-              <div class="col-span-4 font-medium text-gray-800">{{ student.name }}</div>
+              <div class="col-span-5 min-w-0">
+                <div class="font-medium text-gray-800 truncate">{{ student.name }}</div>
+                <div class="mt-1 flex flex-wrap items-center gap-2">
+                  <span
+                    v-for="tag in getStudentTags(student.id)"
+                    :key="tag.id"
+                    class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium text-white"
+                    :style="{ backgroundColor: tag.color }"
+                  >
+                    <span>{{ tag.name }}</span>
+                    <button @click="handleRemoveTag(student, tag)" class="text-white/80 hover:text-white leading-none">×</button>
+                  </span>
+                  <div v-if="allTags.length > 0" class="relative">
+                    <button
+                      @click="tagMenuStudentId = tagMenuStudentId === student.id ? null : student.id"
+                      class="inline-flex items-center rounded-full border border-dashed border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-500 hover:border-orange-300 hover:text-orange-500 transition-colors"
+                    >
+                      管理标签
+                    </button>
+                    <div v-if="tagMenuStudentId === student.id" @click="tagMenuStudentId = null" class="fixed inset-0 z-40"></div>
+                    <div v-if="tagMenuStudentId === student.id" class="absolute left-0 top-full z-50 mt-2 w-52 rounded-2xl border border-gray-100 bg-white p-2 shadow-xl">
+                      <template v-if="allTags.length > 0">
+                        <button
+                          v-for="tag in allTags"
+                          :key="tag.id"
+                          @click="getStudentTags(student.id).some(item => item.id === tag.id) ? handleRemoveTag(student, tag) : handleAddTag(student, tag)"
+                          class="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                        >
+                          <span class="flex items-center gap-2 min-w-0">
+                            <span class="h-3 w-3 rounded-full shrink-0" :style="{ backgroundColor: tag.color }"></span>
+                            <span class="truncate">{{ tag.name }}</span>
+                          </span>
+                          <span class="text-xs font-medium" :class="getStudentTags(student.id).some(item => item.id === tag.id) ? 'text-red-400' : 'text-green-500'">
+                            {{ getStudentTags(student.id).some(item => item.id === tag.id) ? '移除' : '添加' }}
+                          </span>
+                        </button>
+                      </template>
+                    </div>
+                  </div>
+                  <span v-else class="text-xs text-gray-400">暂无标签，可先去设置页创建</span>
+                </div>
+              </div>
               <div class="col-span-3 text-sm text-gray-500">{{ student.student_no }}</div>
               <div class="col-span-2 text-sm font-medium text-orange-500 text-center">{{ student.total_points }}</div>
-              <div class="col-span-3 text-right">
+              <div class="col-span-2 text-right">
                 <button @click="startEdit(student)" class="text-blue-500 hover:text-blue-600 text-sm px-2">编辑</button>
                 <button @click="handleDeleteStudent(student)" class="text-red-400 hover:text-red-600 text-sm px-2">删除</button>
               </div>
